@@ -55,9 +55,12 @@ def crosscheck(
         dev = (merged[f"{col}_a"] - merged[f"{col}_b"]) / merged[f"{col}_b"]
         pre = dev[merged["date"] < LOCKBOX_CUTOFF]
         post = dev[merged["date"] >= LOCKBOX_CUTOFF]
+        exceed_dates = merged.loc[dev.abs() > tolerance, "date"]
         result[col] = {
             "all": _dev_stats(dev, tolerance),
             "pre_lockbox": _dev_stats(pre, tolerance),
             "post_lockbox": _dev_stats(post, tolerance),
+            # Stichprobe der Überschreitungstage (max. 5) für den Report
+            "exceed_days_sample": [d.date().isoformat() for d in exceed_dates.iloc[:5]],
         }
     return result

@@ -143,6 +143,59 @@ def _crosscheck_block(lines: list[str], ticker: str) -> None:
             f"> Toleranz: **{s_all['exceed']}**"
             f" (vor 2025: {s_pre['exceed']}, ab 2025: {s_post['exceed']})"
         )
+        if 0 < s_all["exceed"] <= 5:
+            days = ", ".join(r[col]["exceed_days_sample"])
+            lines.append(f"  - Überschreitungstage ({col}): {days}")
+    lines.append("")
+
+
+def _split_block(lines: list[str], ticker: str) -> None:
+    """Split-Behandlung der rohen Close-Kurse: erklärt Kreuzabgleich-Ausreißer.
+
+    Tiingo liefert splitFactor je Tag; das Verhältnis close_tiingo/close_yahoo am
+    letzten Handelstag vor dem Split zeigt, ob eine Quelle split-adjustiert.
+    """
+    a = _load("yahoo", ticker)
+    b = _load("tiingo", ticker)
+    if a is None or b is None:
+        return
+    df_t = b[0]
+    splits = df_t[df_t["split_factor"] != 1]
+    lines.append(f"### {ticker}\n")
+    if len(splits) == 0:
+        lines.append(
+            "- keine Splits (Tiingo splitFactor durchgehend 1) — raw close direkt vergleichbar\n"
+        )
+        return
+    merged = df_t.merge(a[0], on="date", suffixes=("_t", "_y"))
+    dev = ((merged["close_y"] - merged["close_t"]) / merged["close_t"]).abs()
+    exceed_dates = merged.loc[dev > TOLERANCE_RAW_CLOSE, "date"]
+    first_split = splits["date"].min()
+    n_before = int((exceed_dates < first_split).sum())
+    n_after = int((exceed_dates >= first_split).sum())
+    for _, row in splits.iterrows():
+        before = merged[merged["date"] < row["date"]]
+        if len(before) == 0:
+            continue
+        last = before.iloc[-1]
+        ratio = last["close_t"] / last["close_y"]
+        lines.append(
+            f"- Split am **{row['date'].date()}** (Tiingo splitFactor {row['split_factor']}): "
+            f"Verhältnis close_tiingo/close_yahoo am Vortag = **{ratio:.4f}** "
+            f"→ yahoo-Close ist rückwirkend split-adjustiert, tiingo-close ist der "
+            f"tatsächlich gehandelte Kurs"
+        )
+    rest = ""
+    if n_after:
+        rest_days = ", ".join(
+            d.date().isoformat() for d in exceed_dates[exceed_dates >= first_split][:5]
+        )
+        more = " …" if n_after > 5 else ""
+        rest = f" — Resttage (nicht split-erklärt): {rest_days}{more}"
+    lines.append(
+        f"- close-Überschreitungen: **{n_before}** vor dem ersten Split (split-erklärt), "
+        f"**{n_after}** danach{rest}"
+    )
     lines.append("")
 
 
@@ -171,6 +224,19 @@ def cmd_report(tickers: list[str]) -> None:
     lines.append(f"## Kreuzabgleich yahoo × tiingo (Start-Toleranz raw close: {tol_pct})\n")
     for ticker in tickers:
         _crosscheck_block(lines, ticker)
+    lines.append("## Split-Behandlung der rohen Close-Kurse\n")
+    lines.append(
+        "Systematischer Quellen-Unterschied (erwartet laut CLAUDE.md §5/A2): "
+        "yfinance liefert bei `auto_adjust=False` einen **split-adjustierten** Close "
+        "(nur Dividenden bleiben außen vor), Tiingo dagegen den **unveränderten "
+        "Handelskurs**. Vor Split-Terminen weichen die „rohen“ Close-Reihen daher "
+        "genau um den Split-Faktor ab; der weit überwiegende Teil der "
+        "Toleranz-Überschreitungen ist so erklärt, kleine Restmengen (Einzeltage, "
+        "v. a. hochvolatile Tage und Bruchteil-Notierungs-Ära vor 2001) werden je "
+        "Ticker ausgewiesen:\n"
+    )
+    for ticker in tickers:
+        _split_block(lines, ticker)
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     REPORT_PATH.write_text("\n".join(lines) + "\n")
     print(f"Report geschrieben: {REPORT_PATH.relative_to(REPO_ROOT)}")

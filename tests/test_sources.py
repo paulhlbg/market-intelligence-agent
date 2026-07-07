@@ -23,15 +23,22 @@ def test_yahoo_parse_standard_schema():
 
 
 def test_tiingo_parse_standard_schema_plus_extras():
+    # Fixture = 5 echte API-Datensätze (SPY 01.–07.11.2024), eingefroren am 07.07.2026
+    # via `probe --source tiingo --freeze-fixture` — verifiziert das reale Response-Format.
     df = tiingo.parse_cached(FIXTURES / "tiingo_spy_sample.json")
     for col in STANDARD_COLUMNS:
         assert col in df.columns
     assert {"div_cash", "split_factor"} <= set(df.columns)
-    assert len(df) == 3
+    assert len(df) == 5
     assert validate_standard_frame(df) == []
     # UTC-Zeitstempel der API wird zu naivem Tagesdatum
     assert df["date"].iloc[0].isoformat() == "2024-11-01T00:00:00"
-    assert float(df["div_cash"].iloc[2]) > 0  # Dividendentag im Fixture
+    assert df["date"].iloc[4].isoformat() == "2024-11-07T00:00:00"
+    # Fenster ohne Ex-Dividende/Split (SPY-Q4-Ausschüttung erst im Dezember)
+    assert (df["div_cash"] == 0).all()
+    assert (df["split_factor"] == 1).all()
+    # Adjustierte Kurse liegen vor der Dezember-Dividende unter den rohen
+    assert (df["adj_close"] < df["close"]).all()
 
 
 def test_validate_standard_frame_detects_problems():
