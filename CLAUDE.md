@@ -3,7 +3,7 @@
 Verbindlicher Projektstand für Claude Code. Stand: 06.07.2026.
 Diese Datei ist die maßgebliche Arbeitsgrundlage im Repo. Bei Unklarheit oder Widerspruch: stoppen und den Projektinhaber fragen — nichts still entscheiden.
 
-**Umsetzungsstand:** A2 abgeschlossen (07.07.2026; Ticker-Festlegung siehe Abnahme). Nächstes Arbeitspaket: A3. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
+**Umsetzungsstand:** A2 abgeschlossen (07.07.2026). Ticker-Festlegung (§3.1) am 07.07.2026 bewusst vertagt — spätestens vor A4-Zieldefinition nötig; Empfehlung SPY+QQQ liegt in docs/reports/a2_quellen.md. Nächstes Arbeitspaket: A3. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
 
 ## 1. Rolle und Arbeitsweise
 
