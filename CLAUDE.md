@@ -3,7 +3,7 @@
 Verbindlicher Projektstand für Claude Code. Stand: 06.07.2026.
 Diese Datei ist die maßgebliche Arbeitsgrundlage im Repo. Bei Unklarheit oder Widerspruch: stoppen und den Projektinhaber fragen — nichts still entscheiden.
 
-**Umsetzungsstand:** A1 abgeschlossen (07.07.2026). Nächstes Arbeitspaket: A2. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
+**Umsetzungsstand:** A2 abgeschlossen (07.07.2026; Ticker-Festlegung siehe Abnahme). Nächstes Arbeitspaket: A3. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
 
 ## 1. Rolle und Arbeitsweise
 
