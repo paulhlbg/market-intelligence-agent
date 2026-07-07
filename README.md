@@ -16,6 +16,19 @@ make setup   # Umgebung exakt aus uv.lock reproduzieren (uv sync --frozen)
 make check   # Lint + Format-Check (ruff) und Tests (pytest)
 ```
 
+## Datenquellen (A2)
+
+```sh
+uv run python -m mie.a2_kursdaten download   # Rohdaten cachen (SPY, VOO, QQQ × yahoo, tiingo)
+uv run python -m mie.a2_kursdaten report     # Qualitäts-/Kreuzabgleich-Report generieren
+```
+
+Für die Quelle Tiingo wird ein kostenloser API-Key benötigt (https://www.tiingo.com):
+
+```sh
+export TIINGO_API_KEY=…   # nur in der Shell setzen — nie committen
+```
+
 ## Struktur
 
 | Pfad | Zweck |
