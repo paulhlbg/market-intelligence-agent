@@ -1,0 +1,17 @@
+# Python-Umgebung und Caches
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# macOS / Editor / lokale Tool-Einstellungen
+.DS_Store
+.vscode/
+.claude/settings.local.json
+
+# Daten bleiben lokal (Cache; Nutzungsbedingungen der Quellen) — nur .gitkeep versioniert
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
