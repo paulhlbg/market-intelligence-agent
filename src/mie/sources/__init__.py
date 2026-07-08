@@ -21,15 +21,20 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = REPO_ROOT / "data" / "raw"
 
 
-def raw_paths(source: str, ticker: str, ext: str) -> tuple[Path, Path]:
-    """Pfade für Rohdatei und Meta-Sidecar eines Downloads."""
+def cache_paths(source: str, name: str, ext: str) -> tuple[Path, Path]:
+    """Pfade für Rohdatei und Meta-Sidecar eines Downloads (generisch, auch A3-Termine)."""
     base = RAW_DIR / source
-    return base / f"{ticker.lower()}_daily.{ext}", base / f"{ticker.lower()}_daily.meta.json"
+    return base / f"{name}.{ext}", base / f"{name}.meta.json"
 
 
-def write_raw_cache(
+def raw_paths(source: str, ticker: str, ext: str) -> tuple[Path, Path]:
+    """Pfade für Kursdaten-Downloads (A2-Konvention: <ticker>_daily)."""
+    return cache_paths(source, f"{ticker.lower()}_daily", ext)
+
+
+def write_cache(
     source: str,
-    ticker: str,
+    name: str,
     payload: bytes,
     ext: str,
     params: dict,
@@ -41,12 +46,12 @@ def write_raw_cache(
     Meta enthält Abrufparameter, UTC-Zeitpunkt, SHA-256 und Umfang —
     das ist die „Datenversion" im Sinne von R3. Niemals Zugangsdaten aufnehmen.
     """
-    raw_path, meta_path = raw_paths(source, ticker, ext)
+    raw_path, meta_path = cache_paths(source, name, ext)
     raw_path.parent.mkdir(parents=True, exist_ok=True)
     raw_path.write_bytes(payload)
     meta = {
         "source": source,
-        "ticker": ticker,
+        "name": name,
         "params": params,
         "retrieved_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "sha256": hashlib.sha256(payload).hexdigest(),
@@ -59,10 +64,31 @@ def write_raw_cache(
     return raw_path, meta
 
 
-def read_meta(source: str, ticker: str, ext: str) -> dict:
-    """Meta-Sidecar eines gecachten Downloads lesen."""
-    _, meta_path = raw_paths(source, ticker, ext)
+def write_raw_cache(
+    source: str,
+    ticker: str,
+    payload: bytes,
+    ext: str,
+    params: dict,
+    rows: int,
+    extra_meta: dict | None = None,
+) -> tuple[Path, dict]:
+    """Kursdaten-Download cachen (A2-Konvention: <ticker>_daily, Meta mit ticker-Feld)."""
+    extra = {"ticker": ticker}
+    if extra_meta:
+        extra.update(extra_meta)
+    return write_cache(source, f"{ticker.lower()}_daily", payload, ext, params, rows, extra)
+
+
+def read_cache_meta(source: str, name: str, ext: str) -> dict:
+    """Meta-Sidecar eines gecachten Downloads lesen (generisch)."""
+    _, meta_path = cache_paths(source, name, ext)
     return json.loads(meta_path.read_text())
+
+
+def read_meta(source: str, ticker: str, ext: str) -> dict:
+    """Meta-Sidecar eines Kursdaten-Downloads lesen (A2-Konvention)."""
+    return read_cache_meta(source, f"{ticker.lower()}_daily", ext)
 
 
 def validate_standard_frame(df: pd.DataFrame) -> list[str]:
