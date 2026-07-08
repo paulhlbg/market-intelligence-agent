@@ -10,8 +10,12 @@ __pycache__/
 .vscode/
 .claude/settings.local.json
 
-# Daten bleiben lokal (Cache; Nutzungsbedingungen der Quellen) — nur .gitkeep versioniert
+# Daten bleiben lokal (Cache; Nutzungsbedingungen der Quellen) — nur .gitkeep versioniert.
+# Ausnahme: Terminlisten (gemeinfreie US-Regierungsdaten, klein, machen das Repo
+# reproduzierbar — Beschluss im A3-Plan vom 08.07.2026)
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/fomc_termine.csv
+!data/processed/cpi_termine.csv
