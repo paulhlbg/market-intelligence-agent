@@ -3,7 +3,7 @@
 Verbindlicher Projektstand für Claude Code. Stand: 06.07.2026.
 Diese Datei ist die maßgebliche Arbeitsgrundlage im Repo. Bei Unklarheit oder Widerspruch: stoppen und den Projektinhaber fragen — nichts still entscheiden.
 
-**Umsetzungsstand:** A3 abgeschlossen (08.07.2026), inkl. FRED-Kreuzabgleich CPI (alle Abweichungen aufgeklärt, s. docs/reports/a3_quellen.md). Ticker-Festlegung (§3.1) am 08.07.2026 erfolgt: SPY + QQQ. A4 in Umsetzung (Plan am 08.07.2026 freigegeben; Zieldefinition: Total-Return aus Tiingo-Rohfeldern, Horizont 5 NYSE-Handelstage). (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
+**Umsetzungsstand:** A4 abgeschlossen (08.07.2026): Append-only-Ledger mit klimatologie_v0 läuft, erste Prognosen registriert (SPY/QQQ, Zieltag 14.07.2026); Zieldefinition w1_up_v1 in docs/zieldefinitionen.md, Wochenroutine in docs/routinen.md. Ticker-Festlegung (§3.1) am 08.07.2026 erfolgt: SPY + QQQ. Nächstes Arbeitspaket: A5 (Registry v0). (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
 
 ## 1. Rolle und Arbeitsweise
 
