@@ -1,6 +1,6 @@
 # A3 — Verfügbarkeits- und Qualitätsreport Termine (FOMC, CPI)
 
-**Generiert:** 2026-07-08T05:11:49+00:00 · **Commit:** `fabcd40` · Erzeugt von `uv run python -m mie.a3_termine report` — nicht von Hand editieren.
+**Generiert:** 2026-07-08T14:19:56+00:00 · **Commit:** `5ff7a4a` · Erzeugt von `uv run python -m mie.a3_termine report` — nicht von Hand editieren.
 
 R3-Felder: n, Zeitraum und Datenversion stehen je Quelle unten. **Baseline-Delta: n. a. · Konfidenzintervall: n. a.** — reiner Verfügbarkeits-/Qualitätsreport ohne Effektschätzung; kein Kursbezug.
 
@@ -9,7 +9,7 @@ Ereignisdatum FOMC = letzter Sitzungstag (Bekanntgabetag); CPI = Release-Tag. Uh
 ## FOMC (Quelle „fed“)
 
 - n = **318** Termine (davon 306 bis heute) · Zeitraum **1994-02-04 – 2027-12-08** (inkl. angekündigter Sitzungen)
-- Datenversion: 28 Rohdatei(en), kombiniert sha256 `0cee2a6252297a09…`, abgerufen 2026-07-08T04:56:11+00:00 – 2026-07-08T04:56:31+00:00
+- Datenversion: 28 Rohdatei(en), kombiniert sha256 `4be8b5834be731b4…`, abgerufen 2026-07-08T14:09:30+00:00 – 2026-07-08T14:09:50+00:00
 - Schema-Validierung: ok
 - Checks: Duplikate **0** · Wochenend-Termine **3** · an NYSE-Feiertagen **5** (2001-09-13, 2008-01-21, 2009-02-07, 2010-05-09, 2020-03-15)
 - Terminarten: meeting **272** · conference_call **35** · unscheduled **5** · notation_vote **5** · cancelled **1**
@@ -20,7 +20,7 @@ Ereignisdatum FOMC = letzter Sitzungstag (Bekanntgabetag); CPI = Release-Tag. Uh
 ## CPI (Quelle „bls“)
 
 - n = **394** Termine (davon 388 bis heute) · Zeitraum **1994-02-17 – 2026-12-10** (inkl. angekündigter Termine)
-- Datenversion: 2 Rohdatei(en), kombiniert sha256 `d4e56fed07bbf67a…`, abgerufen 2026-07-08T04:56:31+00:00 – 2026-07-08T04:56:31+00:00
+- Datenversion: 2 Rohdatei(en), kombiniert sha256 `d20070afb9f0deaf…`, abgerufen 2026-07-08T14:09:51+00:00 – 2026-07-08T14:09:51+00:00
 - Schema-Validierung: ok
 - Checks: Duplikate **0** · Wochenend-Termine **0** · an NYSE-Feiertagen **2** (2017-04-14, 2020-04-10)
 - Lücken > 45 Tage zwischen Releases: **2** — 1995-12-14 → 1996-02-01 (49 Tage); 2025-10-24 → 2025-12-18 (55 Tage)
@@ -28,7 +28,9 @@ Ereignisdatum FOMC = letzter Sitzungstag (Bekanntgabetag); CPI = Release-Tag. Uh
 
 ## Kreuzabgleich CPI: bls × fred
 
-- **übersprungen** — kein FRED-Cache vorhanden (FRED_API_KEY fehlt, Stand der Report-Generierung). Nachholen: Key setzen, dann `uv run python -m mie.a3_termine all`.
+- Überlappung **1994-02-17 – 2026-06-10**: übereinstimmend **387** · nur bls **1** · nur fred **20**
+  - nur bls: 1998-02-25
+  - nur fred: 1998-02-24, 2000-09-28, 2005-02-18, 2006-02-17, 2007-02-16, 2008-02-15, 2009-02-18, 2010-02-17, 2011-02-15, 2012-02-15
 
 ## Verarbeitete Terminlisten
 

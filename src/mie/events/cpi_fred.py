@@ -5,10 +5,11 @@ Endpoint /fred/release/dates, release_id 10 = „Consumer Price Index"
 Kostenloser API-Key nötig; FRED akzeptiert ihn nur als Query-Parameter —
 der Key wird daher aus URL-Ausgaben, Meta und Logs herausgehalten.
 
-Rolle: Kreuzabgleich-Quelle zum BLS-Archiv; dieses Modul ist funktionsfähig,
-aber erst nutzbar, sobald FRED_API_KEY gesetzt ist (Stand 08.07.2026: fehlt —
-der Response-Parser ist bis dahin nur gegen das dokumentierte API-Format
-getestet, nicht gegen einen echten Abruf).
+Rolle: Kreuzabgleich-Quelle zum BLS-Archiv (R2-verifiziert am 08.07.2026:
+Release-ID 10 = „Consumer Price Index", 456 Termine ab 18.01.1990). Achtung,
+FREDs Release-Kalender ist eine Obermenge der monatlichen CPI-Releases: Er
+enthält zusätzlich die jährlichen Saisonbereinigungs-Revisionen (Februar) und
+Sonder-Releases (z. B. die Korrektur vom 28.09.2000) — Details im Quellen-Report.
 """
 
 import json

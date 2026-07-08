@@ -2,8 +2,8 @@
 
 Die HTML-Fixtures sind echte, unveränderte Ausschnitte der am 08.07.2026
 gecachten Quellseiten (Extraktionshinweis im Kommentar am Dateianfang).
-Das FRED-Fixture folgt nur dem dokumentierten API-Format und wird nach
-Anlage des FRED_API_KEY durch echte Datensätze ersetzt (probe --freeze-fixture).
+Das FRED-Fixture sind 5 echte API-Datensätze, eingefroren am 08.07.2026
+via `probe --source fred --freeze-fixture` — verifiziert das reale Response-Format.
 """
 
 from pathlib import Path
@@ -123,11 +123,13 @@ def test_bls_terminplan_mit_uhrzeit():
     assert (df["time_et"] == "08:30").all()
 
 
-def test_fred_parser_dokumentiertes_format():
+def test_fred_parser_echtes_response_format():
+    # Fixture = 5 echte API-Datensätze (Release-Termine ab 18.01.1990),
+    # eingefroren am 08.07.2026 via `probe --source fred --freeze-fixture`.
     df = cpi_fred.parse_bytes((FIXTURES / "fred_release_dates_sample.json").read_bytes())
     assert validate_events_frame(df) == []
     assert len(df) == 5
-    assert df.loc[0, "date"] == pd.Timestamp("1998-02-24")
+    assert df.loc[0, "date"] == pd.Timestamp("1990-01-18")
     assert (df["source"] == "fred").all()
 
 

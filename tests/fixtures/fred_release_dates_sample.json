@@ -1,17 +1,31 @@
 {
-  "_hinweis": "Format laut FRED-API-Doku (fred/release/dates, file_type=json); Werte plausibel, aber NICHT gegen echten Abruf verifiziert — FRED_API_KEY fehlte am 08.07.2026. Nach Key-Anlage ersetzen: uv run python -m mie.a3_termine probe --source fred --freeze-fixture tests/fixtures/fred_release_dates_sample.json",
   "realtime_start": "1990-01-01",
   "realtime_end": "9999-12-31",
   "order_by": "release_date",
   "sort_order": "asc",
-  "count": 5,
+  "count": 456,
   "offset": 0,
   "limit": 10000,
   "release_dates": [
-    { "release_id": 10, "date": "1998-02-24" },
-    { "release_id": 10, "date": "1998-03-18" },
-    { "release_id": 10, "date": "1998-04-14" },
-    { "release_id": 10, "date": "1998-05-14" },
-    { "release_id": 10, "date": "1998-06-12" }
+    {
+      "release_id": 10,
+      "date": "1990-01-18"
+    },
+    {
+      "release_id": 10,
+      "date": "1990-02-21"
+    },
+    {
+      "release_id": 10,
+      "date": "1990-03-20"
+    },
+    {
+      "release_id": 10,
+      "date": "1990-04-17"
+    },
+    {
+      "release_id": 10,
+      "date": "1990-05-16"
+    }
   ]
 }

@@ -10,7 +10,7 @@ dieses Dokument ergänzt Einordnung, Nutzungsbedingungen, Uhrzeiten-Belege und E
 |---|---|---|---|---|
 | **Federal Reserve** (federalreserve.gov) | FOMC | ✅ nutzbar | HTML-Kalenderseiten (aktuell + 27 Jahresseiten) | 0 € |
 | **BLS** (bls.gov) | CPI | ✅ nutzbar (Auflage: Kontakt-UA) | HTML-Terminplan + Release-Archiv | 0 € |
-| **FRED** (api.stlouisfed.org) | CPI (Kreuzabgleich) | ⏳ vorbereitet, Key fehlt | offizielle REST-API, kostenloser Key | 0 € |
+| **FRED** (api.stlouisfed.org) | CPI (Kreuzabgleich) | ✅ nutzbar (Key seit 08.07.2026) | offizielle REST-API, kostenloser Key | 0 € |
 
 ### Federal Reserve — gemeinfreie Regierungsseite
 
@@ -30,15 +30,17 @@ dieses Dokument ergänzt Einordnung, Nutzungsbedingungen, Uhrzeiten-Belege und E
   Projektinhabers; 2 Seiten je Volldownload. Das ist die dokumentierte
   Erwartung des Betreibers, kein Umgehen einer Schutzmaßnahme.
 
-### FRED — offizielle API, Key ausstehend
+### FRED — offizielle API, verifiziert
 
-- Endpoint `/fred/release/dates` (Release-ID 10 = Consumer Price Index) am
-  08.07.2026 verifiziert: antwortet, verlangt aber einen API-Key (kostenlos).
-- **Aktion Projektinhaber:** Key anlegen (fred.stlouisfed.org → My Account →
-  API Keys), dann `export FRED_API_KEY=…` in `~/.zprofile` (analog Tiingo) und
-  `uv run python -m mie.a3_termine all` — der Kreuzabgleich läuft dann
-  automatisch mit. Modul, Report-Block und Fixture-Ersetzung
-  (`probe --source fred --freeze-fixture …`) sind vorbereitet.
+- Endpoint `/fred/release/dates`, Release-ID 10 am 08.07.2026 per
+  `/fred/release` als „Consumer Price Index" verifiziert; Key liegt als
+  `FRED_API_KEY` in `~/.zprofile` (nie im Repo; FRED verlangt ihn als
+  Query-Parameter, er wird aus Meta/Logs herausgehalten).
+- **Deckung:** 456 Release-Termine 18.01.1990 – 10.06.2026 (Abrufparameter
+  `realtime_start=1990-01-01`; früherer Start nicht geprüft, nicht benötigt).
+- **Wichtig:** FREDs Release-Kalender ist eine **Obermenge** der monatlichen
+  CPI-Releases (enthält auch Revisions-/Sonder-Releases, s. Abschnitt 2) und
+  nennt keine Referenzmonate — als Ereignisliste bleibt BLS maßgeblich.
 - FRED-ToS: persönliche/interne Nutzung des Freikontingents; wir cachen nur
   Termindaten (Fakten), keine Redistribution der API-Responses.
 
@@ -60,10 +62,11 @@ bleiben lokal (`data/raw/` ist gitignored).
 2. **Deckung CPI:** 394 Termine 1994-02-17 – 2026-12-10. Das BLS-Archiv nutzt
    vor Juni 1999 6-stellige Datums-URLs — erst deren Behandlung hebt die
    Deckung von 1999 auf Februar 1994.
-3. **Deckungslücke vs. Kursdaten:** SPY beginnt 1993-01-29; beide Terminreihen
-   erst Anfang 1994. Konsequenz: Ereignisstudien können frühestens ab
-   Februar 1994 beginnen (FOMC-seitig ohnehin sachlich richtig: erst seit
-   04.02.1994 gibt die Fed Entscheidungen zeitnah bekannt). Kein Blocker.
+3. **Deckung vs. Kursdaten:** SPY beginnt 1993-01-29; die BLS-Reihe erst
+   1994-02, FRED reicht bis 1990-01 zurück (49 Termine vor BLS-Start — dieses
+   Segment ist aber Ein-Quellen-Lage ohne Kreuzabgleich und ohne Referenzmonat).
+   FOMC-seitig beginnt die Ereigniszeit ohnehin erst am 04.02.1994 (erstes
+   Statement). Kein Blocker; Startdatum der Ereignisstudie entscheidet Phase B.
 4. **Kreuzabgleich FOMC** (Kalendereintrag × Statement-Link, reguläre
    Sitzungen ab Mai 1999): 216 von 218 exakt. Die zwei Abweichungen sind
    Quellen-Eigenheiten, keine Parserfehler:
@@ -78,6 +81,20 @@ bleiben lokal (`data/raw/` ist gitignored).
    Karfreitagen 2017/2020 — BLS folgt dem Bundes-, nicht dem Börsenkalender).
    Die beiden CPI-Lücken > 45 Tage sind die Government Shutdowns 1995/96 und
    Herbst 2025 (der CPI für Oktober 2025 ist ersatzlos entfallen).
+6. **Kreuzabgleich CPI (bls × fred, Überlappung 1994-02 – 2026-06):**
+   387 Termine exakt gleich, 1 nur bls, 20 nur fred — alle Abweichungen
+   aufgeklärt:
+   - **19 der 20 „nur fred" liegen im Februar** (2005–2024): FREDs Kalender
+     zählt die jährliche Saisonbereinigungs-Revision des CPI als eigenes
+     Release; dazu passt der Ausreißer **28.09.2000** (Sonder-Release der
+     CPI-Korrektur nach dem Berechnungsfehler 2000). FRED ist also eine
+     Obermenge; die BLS-Liste bleibt die maßgebliche Ereignisliste.
+   - **24./25.02.1998 (1 nur fred + 1 nur bls):** derselbe Termin mit
+     1 Tag Differenz. Primärbeleg (Header des BLS-Release-Textes
+     `cpi_022598.txt`, gesichtet 08.07.2026): „EMBARGOED UNTIL 8:30 A.M. (EST)
+     Tuesday, February 24, 1998" — **FRED hat recht, der BLS-Archiv-Dateiname
+     trägt ein falsches Datum.** Einzelfall; für Phase B ist der 24.02.1998
+     der korrekte Ereignistag.
 
 ## 3. Veröffentlichungs-Uhrzeiten (verifiziert vs. dokumentiert)
 
@@ -105,8 +122,10 @@ ist eindeutig der Ereignistag.
 ### CPI-Release
 
 - 08:30 ET, laut BLS-Terminplan für alle 13 kommenden Termine (R2-verifiziert);
-  das Release-Archiv nennt keine Uhrzeiten. Die 08:30-Konvention gilt als
-  langjährig stabil, ist aber je Termin historisch nicht von uns verifiziert.
+  das Release-Archiv nennt keine Uhrzeiten. Historischer Stichprobenbeleg:
+  der Release-Text vom 24.02.1998 trägt „EMBARGOED UNTIL 8:30 A.M. (EST)" —
+  die Konvention gilt also mindestens seit 1998; je Termin ist sie historisch
+  nicht von uns verifiziert.
 - **Konsequenz für Phase B:** 08:30 ET liegt vor Börsenöffnung (09:30 ET) —
   der Release-Tag ist eindeutig der Ereignistag; die Marktreaktion beginnt
   mit der Eröffnung desselben Tages.
@@ -115,7 +134,8 @@ ist eindeutig der Ereignistag.
 
 - **Quellen-Rollen:** Fed-Kalenderseiten als Primärquelle FOMC (einzige
   vollständige freie Quelle inkl. Sondertermin-Typologie); BLS als
-  Primärquelle CPI; FRED als Kreuzabgleich CPI (nach Key-Anlage).
+  Primärquelle CPI (Referenzmonate, nur primäre Releases); FRED als
+  Kreuzabgleich CPI (durchgeführt am 08.07.2026, s. Abschnitt 2.6).
 - **Optionale spätere Ergänzung:** ALFRED führt „FOMC Press Release" als
   eigene Release-Serie (rid 101) — möglicher zweiter maschinenlesbarer
   FOMC-Kreuzabgleich über denselben FRED-Key; für A3 nicht nötig.
