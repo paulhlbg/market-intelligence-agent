@@ -33,12 +33,15 @@ def crosscheck(
     label_a: str,
     label_b: str,
     tolerance: float = TOLERANCE_RAW_CLOSE,
+    columns: tuple[str, ...] = ("close", "adj_close"),
 ) -> dict:
     """Beide Quellen über das Datum verbinden und Abweichungen quantifizieren.
 
     Relative Abweichung = (a − b) / b. Für close gilt die Toleranz;
     adj_close wird mit derselben Kennzahl berichtet, aber ohne Bestehens-Schwelle
     (Adjustierungsmethoden differieren systematisch zwischen Quellen).
+    columns: zu vergleichende Spalten — BTC-Frames (A6) haben kein adj_close,
+    dort wird nur ("close",) verglichen.
     """
     merged = df_a.merge(df_b, on="date", how="inner", suffixes=("_a", "_b"))
     result: dict = {
@@ -51,7 +54,7 @@ def crosscheck(
         "only_b": int(len(df_b) - len(merged)),
         "tolerance": tolerance,
     }
-    for col in ("close", "adj_close"):
+    for col in columns:
         dev = (merged[f"{col}_a"] - merged[f"{col}_b"]) / merged[f"{col}_b"]
         pre = dev[merged["date"] < LOCKBOX_CUTOFF]
         post = dev[merged["date"] >= LOCKBOX_CUTOFF]
@@ -60,7 +63,10 @@ def crosscheck(
             "all": _dev_stats(dev, tolerance),
             "pre_lockbox": _dev_stats(pre, tolerance),
             "post_lockbox": _dev_stats(post, tolerance),
-            # Stichprobe der Überschreitungstage (max. 5) für den Report
+            # Stichprobe der Überschreitungstage (max. 5) und letzter Überschreitungstag
             "exceed_days_sample": [d.date().isoformat() for d in exceed_dates.iloc[:5]],
+            "last_exceed_day": (
+                exceed_dates.iloc[-1].date().isoformat() if len(exceed_dates) else None
+            ),
         }
     return result
