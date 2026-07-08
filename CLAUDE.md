@@ -3,7 +3,7 @@
 Verbindlicher Projektstand für Claude Code. Stand: 06.07.2026.
 Diese Datei ist die maßgebliche Arbeitsgrundlage im Repo. Bei Unklarheit oder Widerspruch: stoppen und den Projektinhaber fragen — nichts still entscheiden.
 
-**Umsetzungsstand:** A3 abgeschlossen (08.07.2026), inkl. FRED-Kreuzabgleich CPI (alle Abweichungen aufgeklärt, s. docs/reports/a3_quellen.md). Ticker-Festlegung (§3.1) weiter offen — spätestens vor A4-Zieldefinition nötig; Empfehlung SPY+QQQ liegt in docs/reports/a2_quellen.md. Nächstes Arbeitspaket: A4. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
+**Umsetzungsstand:** A3 abgeschlossen (08.07.2026), inkl. FRED-Kreuzabgleich CPI (alle Abweichungen aufgeklärt, s. docs/reports/a3_quellen.md). Ticker-Festlegung (§3.1) am 08.07.2026 erfolgt: SPY + QQQ. A4 in Umsetzung (Plan am 08.07.2026 freigegeben; Zieldefinition: Total-Return aus Tiingo-Rohfeldern, Horizont 5 NYSE-Handelstage). (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
 
 ## 1. Rolle und Arbeitsweise
 
@@ -15,7 +15,7 @@ Langfristiges Ziel ist eine Market Intelligence Engine, die aus Marktdaten kalib
 
 ## 3. Verbindliche Entscheidungen (nicht neu verhandeln, nicht still ändern)
 
-1. **Universum ES-Stufe 1:** 1 S&P-500-ETF + 1 Nasdaq-100-ETF. Konkrete Ticker werden erst in A2 nach Datenlage festgelegt (Kandidaten: SPY/VOO, QQQ). Bitcoin ist NICHT Teil der Ereignisstudie.
+1. **Universum ES-Stufe 1:** 1 S&P-500-ETF + 1 Nasdaq-100-ETF. **Festgelegt am 08.07.2026 durch den Projektinhaber: SPY + QQQ** (gemäß Empfehlung docs/reports/a2_quellen.md §3: SPY ab 1993 und splitfrei, VOO erst ab 2010; QQQ einziger geprüfter Nasdaq-100-Kandidat). Bitcoin ist NICHT Teil der Ereignisstudie.
 2. **Bitcoin:** nur als eigener Zweig im Wochen-Ledger (Arbeitspaket A6, optional, ersatzlos streichbar, falls die Quellenprüfung zäh wird). UTC-Close-Konvention wird in A6 schriftlich festgelegt.
 3. **Ereignistypen Stufe 1:** FOMC-Zinsentscheide und US-CPI-Veröffentlichungen. Earnings ausdrücklich nicht im MVP.
 4. **Horizonte:** Der 1-Wochen-Horizont läuft ab sofort nur forward im Ledger (Klimatologie = „Modell v0"); seine historische Auswertung ist auf die spätere Harness-Stufe verschoben. Ereignisbezogene Prognosen werden spätestens T−1 vor dem Termin registriert.
