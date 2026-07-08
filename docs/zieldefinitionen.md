@@ -1,6 +1,7 @@
 # Zieldefinitionen (Ledger)
 
-**Stand: 08.07.2026 · Festgelegt vom Projektinhaber am 08.07.2026 (A4-Plan).**
+**Stand: 08.07.2026 · `w1_up_v1`/`klimatologie_v0` festgelegt vom Projektinhaber
+am 08.07.2026 (A4-Plan) · `btc_w1_up_v1` festgelegt am 08.07.2026 (A6).**
 
 Jede Prognose im Ledger verweist über `target_id` auf genau eine Definition in
 dieser Datei. Definitionen sind unveränderlich: Eine inhaltliche Änderung ergibt
@@ -59,6 +60,50 @@ Anteil der Fälle, in denen das Ziel in der Vergangenheit eingetreten ist.)*
 - Im Ledger dokumentiert je Prognose: `train_n` (Anzahl Fenster),
   `train_start`/`train_end` (Zeitraum), `data_version` (SHA-256 der
   Tiingo-Rohdatei), `code_commit`.
+
+## Ziel `btc_w1_up_v1` — „steigt in einer Woche" (Asset: BTC · Horizont-Label `w1_7cd`)
+
+**In einem Satz:** Die Prognose ist die Wahrscheinlichkeit, dass der
+Coinbase-BTC-USD-Tagesschlusskurs in 7 Kalendertagen (UTC) über dem
+Anker-Schlusskurs liegt.
+
+BTC ist **nicht** Teil der Ereignisstudie (CLAUDE.md §3.2) — nur Wochen-Ledger.
+Quellen-Beschluss des Projektinhabers vom 08.07.2026:
+docs/reports/a6_btc_quellen.md §4.
+
+- **Preisquelle:** ausschließlich **Coinbase-Exchange-Rohdaten**
+  (BTC-USD-Tageskerzen; Primärquelle laut A6). **UTC-Close-Konvention:** Ein
+  „Tag" ist der UTC-Kalendertag (Kerzen-Bucket 00:00–24:00 UTC); der
+  „Tagesschlusskurs" ist der Close dieser Tageskerze, also der letzte Kurs vor
+  Mitternacht UTC. Kein NYSE-Kalender, keine Zeitzonen-/Sommerzeitfragen.
+  Tiingo-Krypto dient nur dem Kreuzabgleich. Fällt Coinbase aus: Lauf
+  verschieben bzw. stoppen und den Projektinhaber fragen — kein stiller
+  Quellenwechsel.
+- **Keine Adjustierung:** BTC kennt keine Dividenden und keine Splits; ein
+  adj_close-Äquivalent existiert nicht. Rechnerisch wird die
+  Total-Return-Formel von `w1_up_v1` mit `div_cash = 0` und
+  `split_factor = 1` wiederverwendet — sie reduziert sich exakt auf
+  `close_ende / close_start − 1`.
+- **Anker:** `anchor_date` = letzter **abgeschlossener** UTC-Kalendertag im
+  Coinbase-Cache — die Kerze des laufenden UTC-Tages ist noch nicht final und
+  wird verworfen; `anchor_close` = Close dieses Tages.
+- **Zieltag:** `target_date` = `anchor_date` + **7 Kalendertage (UTC)**;
+  BTC handelt 24/7. Eigenes Horizont-Label **`w1_7cd`** (`w1_up_v1`/`w1_5td`
+  werden nicht wiederverwendet: 5 Handelstage ≠ 7 Kalendertage).
+- **Binäres Ziel:** 1, wenn Rendite > 0; exakt 0 zählt als „nicht gestiegen".
+- **Lücken-Regel:** Fehlt der Zieltag im Cache, obwohl spätere Tage vorliegen
+  (Feed-Lücke): stoppen und den Projektinhaber fragen — **kein Ausweichtag**,
+  anders als bei `w1_up_v1` gibt es keine „unvorhergesehene Börsenschließung",
+  jeder Kalendertag zählt. Liegt der Zieltag schlicht noch nicht im Cache:
+  Prognose bleibt offen.
+- **Modell `klimatologie_v0` für BTC:** Basisrate = Anteil der überlappenden
+  **7-Kalendertage-Fenster** mit Rendite > 0 über alle zum Prognosezeitpunkt
+  verfügbaren abgeschlossenen Tage der Coinbase-Reihe (Beginn 2015-07-20;
+  Lockbox-Regel wie gehabt — Live-Input erlaubt). Die Reihe wird bei jedem
+  Lauf auf Kalendertag-Lücken geprüft; bei Lücke stoppt die Routine, denn nur
+  bei lückenloser Reihe gilt 7 Zeilen = 7 Kalendertage. Dokumentiert je
+  Prognose: `train_n`, `train_start`/`train_end`, `data_version` (SHA-256 der
+  Coinbase-Rohdatei), `code_commit`.
 
 ## Ereignistag-Konventionen (für spätere ereignisbezogene Prognosen)
 

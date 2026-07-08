@@ -23,6 +23,7 @@ from mie.ledger.klimatologie import window_return
 from mie.sources import REPO_ROOT
 
 TARGET_W1_UP_V1 = "w1_up_v1"
+TARGET_BTC_W1_UP_V1 = "btc_w1_up_v1"  # BTC-Zweig (A6): 7 Kalendertage UTC, kein Börsenkalender
 
 FORECAST_COLUMNS = [
     "forecast_id",
@@ -195,18 +196,20 @@ def due_resolutions(
     commit: str,
     now_utc: str,
 ) -> list[dict]:
-    """Auflösungszeilen für alle fälligen offenen Prognosen (Zieldefinition w1_up_v1).
+    """Auflösungszeilen für alle fälligen offenen Prognosen (w1_up_v1 und btc_w1_up_v1).
 
-    Nachtrag-Regel laut docs/zieldefinitionen.md: Fehlt der geplante target_date im
-    Kursframe und ist er laut (gepinntem) NYSE-Kalender kein Handelstag, gilt der
-    nächste vorhandene Handelstag. Ist er laut Kalender Handelstag, wird abgebrochen —
-    Datenlücke oder eine Schließung, die der gepinnte Kalender noch nicht kennt;
-    das entscheidet der Projektinhaber, nicht das Skript.
+    Nachtrag-Regel für w1_up_v1 laut docs/zieldefinitionen.md: Fehlt der geplante
+    target_date im Kursframe und ist er laut (gepinntem) NYSE-Kalender kein
+    Handelstag, gilt der nächste vorhandene Handelstag. Ist er laut Kalender
+    Handelstag, wird abgebrochen — Datenlücke oder eine Schließung, die der
+    gepinnte Kalender noch nicht kennt; das entscheidet der Projektinhaber,
+    nicht das Skript. Für btc_w1_up_v1 gibt es KEINEN Ausweichtag: BTC handelt
+    24/7, ein fehlender Zieltag ist immer eine Feed-Lücke → Abbruch.
     """
     rows: list[dict] = []
     open_rows = forecasts[~forecasts["forecast_id"].isin(set(resolutions["forecast_id"]))]
     for _, r in open_rows.iterrows():
-        if r["target_id"] != TARGET_W1_UP_V1:
+        if r["target_id"] not in {TARGET_W1_UP_V1, TARGET_BTC_W1_UP_V1}:
             raise LedgerError(f"{r['forecast_id']}: unbekannte target_id {r['target_id']!r}")
         frame = prices.get(r["asset"])
         if frame is None:
@@ -217,6 +220,12 @@ def due_resolutions(
             continue  # noch nicht fällig
         if (dates == target).any():
             resolution_date = target
+        elif r["target_id"] == TARGET_BTC_W1_UP_V1:
+            raise LedgerError(
+                f"{r['forecast_id']}: {target.date()} fehlt im Kursframe trotz späterer "
+                "Tage — Feed-Lücke am Zieltag; für BTC gibt es keinen Ausweichtag "
+                "(docs/zieldefinitionen.md). Stoppen und Projektinhaber fragen."
+            )
         else:
             if len(expected_trading_days(target, target)) > 0:
                 raise LedgerError(

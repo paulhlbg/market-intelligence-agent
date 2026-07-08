@@ -240,6 +240,60 @@ def test_anchor_integritaet():
         _due(_forecast_row(anchor_close="999.0"), frame)
 
 
+# ---------- Auflösungslogik BTC (btc_w1_up_v1: 7 Kalendertage UTC, kein Ausweichtag) ----------
+
+BTC_DAYS = [f"2026-01-0{i}" for i in range(1, 9)]  # 8 Kalendertage: Anker 01.01., Ziel 08.01.
+
+
+def _btc_forecast_row(**over):
+    row = _forecast_row(
+        forecast_id="2026-01-01_btc_w1",
+        asset="BTC",
+        horizon="w1_7cd",
+        target_id="btc_w1_up_v1",
+        anchor_date="2026-01-01",
+        anchor_close="100.0",
+        target_date="2026-01-08",
+        train_start="2015-07-20",
+        train_end="2026-01-01",
+    )
+    row.update(over)
+    return row
+
+
+def _due_btc(forecast, frame):
+    return ledger.due_resolutions(
+        pd.DataFrame([forecast]),
+        _empty_resolutions(),
+        {"BTC": frame},
+        {"BTC": "sha_test"},
+        "deadbee",
+        "2026-01-08T23:59:00+00:00",
+    )
+
+
+def test_btc_aufloesung_faellig():
+    frame = _price_frame(BTC_DAYS, [100, 101, 102, 103, 104, 105, 106, 90])
+    rows = _due_btc(_btc_forecast_row(), frame)
+    assert len(rows) == 1
+    assert rows[0]["realized_return"] == "-0.100000"  # 90/100 − 1: reines Close-Verhältnis
+    assert rows[0]["outcome"] == "0"
+    assert rows[0]["resolution_date"] == "2026-01-08"
+
+
+def test_btc_noch_nicht_faellig():
+    frame = _price_frame(BTC_DAYS[:7], [100, 101, 102, 103, 104, 105, 106])
+    assert _due_btc(_btc_forecast_row(), frame) == []
+
+
+def test_btc_feedluecke_am_zieltag_bricht_ab():
+    # Zieltag 08.01. fehlt, obwohl der 09.01. vorliegt → Feed-Lücke, kein Ausweichtag
+    days = BTC_DAYS[:7] + ["2026-01-09"]
+    frame = _price_frame(days, [100, 101, 102, 103, 104, 105, 106, 107])
+    with pytest.raises(ledger.LedgerError, match="Feed-Lücke"):
+        _due_btc(_btc_forecast_row(), frame)
+
+
 def test_next_trading_days():
     days = ledger.next_trading_days(pd.Timestamp("2024-01-05"), 5)
     assert [d.date().isoformat() for d in days] == [

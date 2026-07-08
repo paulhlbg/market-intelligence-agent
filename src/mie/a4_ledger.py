@@ -4,12 +4,13 @@ Aufrufe (aus dem Repo-Wurzelverzeichnis):
     uv run python -m mie.a4_ledger weekly [--dry-run] [--no-refresh]
     uv run python -m mie.a4_ledger status
 
-weekly: (1) Tiingo-Cache SPY+QQQ auffrischen (2 Requests), (2) fällige Prognosen
-auflösen, (3) je Asset eine 1-Wochen-Prognose (klimatologie_v0, Ziel w1_up_v1)
-anhängen. Alle ausgegebenen Wahrscheinlichkeiten sind Modelloutputs
-(Klimatologie-Basisrate) — keine Anlageempfehlung. Netzzugriff passiert nur
-hier (CLI), nie in Tests. Danach: Ausgabe gegenlesen, `make check`, committen
-(docs/routinen.md).
+weekly: (1) Tiingo-Cache SPY+QQQ und Coinbase-Cache BTC auffrischen, (2) fällige
+Prognosen auflösen, (3) je Asset eine 1-Wochen-Prognose anhängen (klimatologie_v0;
+SPY/QQQ: Ziel w1_up_v1 über 5 Handelstage, BTC: Ziel btc_w1_up_v1 über
+7 Kalendertage UTC — docs/zieldefinitionen.md). Alle ausgegebenen
+Wahrscheinlichkeiten sind Modelloutputs (Klimatologie-Basisrate) — keine
+Anlageempfehlung. Netzzugriff passiert nur hier (CLI), nie in Tests. Danach:
+Ausgabe gegenlesen, `make check`, committen (docs/routinen.md).
 """
 
 import argparse
@@ -19,13 +20,17 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from mie import ledger
-from mie.checks import check_duplicates
+from mie.checks import check_duplicates, check_gaps
 from mie.ledger.klimatologie import HORIZON_TRADING_DAYS, base_rate
-from mie.sources import raw_paths, read_meta, tiingo, validate_standard_frame
+from mie.sources import coinbase, raw_paths, read_meta, tiingo, validate_standard_frame
 
 ASSETS = ["SPY", "QQQ"]  # Festlegung Projektinhaber 08.07.2026 (CLAUDE.md §3.1)
 HORIZON_LABEL = "w1_5td"
 MODEL_ID = "klimatologie_v0"
+
+BTC_ASSET = "BTC"  # eigener Ledger-Zweig (A6) — NICHT Teil der Ereignisstudie (CLAUDE.md §3.2)
+BTC_HORIZON_LABEL = "w1_7cd"
+BTC_HORIZON_DAYS = 7  # Kalendertage UTC (docs/zieldefinitionen.md, btc_w1_up_v1)
 
 
 def _refresh() -> None:
@@ -38,6 +43,14 @@ def _refresh() -> None:
                 "kein stiller Quellenwechsel (docs/zieldefinitionen.md)."
             ) from exc
         print(f"tiingo/{ticker}: {meta['rows']} Zeilen (sha256 {meta['sha256'][:12]}…)")
+    try:
+        _, meta = coinbase.download_daily()
+    except OSError as exc:
+        raise SystemExit(
+            f"Coinbase nicht erreichbar ({exc}) — Lauf später wiederholen; "
+            "kein stiller Quellenwechsel (docs/zieldefinitionen.md)."
+        ) from exc
+    print(f"coinbase/{coinbase.TICKER}: {meta['rows']} Zeilen (sha256 {meta['sha256'][:12]}…)")
 
 
 def _load_prices() -> tuple[dict[str, pd.DataFrame], dict[str, str]]:
@@ -60,6 +73,45 @@ def _load_prices() -> tuple[dict[str, pd.DataFrame], dict[str, str]]:
         frames[ticker] = frame
         versions[ticker] = read_meta(tiingo.SOURCE, ticker, tiingo.EXT)["sha256"]
     return frames, versions
+
+
+def _load_btc() -> tuple[pd.DataFrame, str]:
+    """BTC-Frame (nur abgeschlossene UTC-Tage) + Datenversion; bricht bei Schadbefund ab.
+
+    Prüfungen laut docs/zieldefinitionen.md (btc_w1_up_v1): Duplikate, Close ≤ 0
+    und Kalendertag-Lücken — nur bei lückenloser Reihe gilt 7 Zeilen =
+    7 Kalendertage (Basisrate). Die Kerze des laufenden UTC-Tages ist noch nicht
+    final und wird verworfen (Anker = letzter abgeschlossener UTC-Tag).
+    """
+    raw_path, _ = raw_paths(coinbase.SOURCE, coinbase.TICKER, coinbase.EXT)
+    if not raw_path.exists():
+        raise SystemExit("Kein Coinbase-Cache für BTC — weekly ohne --no-refresh laufen lassen.")
+    frame = coinbase.parse_cached(raw_path)
+    today_utc = pd.Timestamp(datetime.now(UTC).date())
+    frame = frame[frame["date"] < today_utc].reset_index(drop=True)
+    if frame.empty:
+        raise SystemExit("BTC: keine abgeschlossenen UTC-Tage im Coinbase-Cache")
+    problems = []
+    if not frame["date"].is_monotonic_increasing:
+        problems.append("date nicht aufsteigend sortiert")
+    if len(check_duplicates(frame)):
+        problems.append("doppelte Datumszeilen")
+    gaps = check_gaps(frame, pd.date_range(frame["date"].min(), frame["date"].max(), freq="D"))
+    if len(gaps):
+        gap_list = ", ".join(d.date().isoformat() for d in gaps[:5])
+        problems.append(f"{len(gaps)} Kalendertag-Lücke(n), z. B. {gap_list}")
+    if (frame["close"] <= 0).any():
+        problems.append("Close ≤ 0")
+    if problems:
+        raise SystemExit(
+            f"BTC: Kursframe fehlerhaft — {'; '.join(problems)}. "
+            "Stoppen und Projektinhaber fragen (kein stilles Weiterrechnen)."
+        )
+    # BTC kennt keine Dividenden/Splits; die Konstantspalten lassen window_return/
+    # base_rate unverändert gelten (docs/zieldefinitionen.md, btc_w1_up_v1).
+    frame = frame.assign(div_cash=0.0, split_factor=1.0)
+    version = read_meta(coinbase.SOURCE, coinbase.TICKER, coinbase.EXT)["sha256"]
+    return frame, version
 
 
 def _new_forecast_rows(
@@ -103,10 +155,48 @@ def _new_forecast_rows(
     return rows
 
 
+def _btc_forecast_rows(
+    frame: pd.DataFrame,
+    version: str,
+    existing_ids: set[str],
+    commit: str,
+    now_utc: str,
+) -> list[dict]:
+    anchor_date = frame["date"].iloc[-1]  # letzter abgeschlossener UTC-Tag (_load_btc)
+    forecast_id = f"{anchor_date.date()}_btc_w1"
+    if forecast_id in existing_ids:
+        print(f"{forecast_id}: bereits registriert (Anker unverändert) — übersprungen")
+        return []
+    stats = base_rate(frame, horizon=BTC_HORIZON_DAYS)
+    target_date = anchor_date + pd.Timedelta(days=BTC_HORIZON_DAYS)
+    return [
+        {
+            "forecast_id": forecast_id,
+            "created_utc": now_utc,
+            "asset": BTC_ASSET,
+            "horizon": BTC_HORIZON_LABEL,
+            "target_id": ledger.TARGET_BTC_W1_UP_V1,
+            "anchor_date": anchor_date.date().isoformat(),
+            "anchor_close": str(float(frame["close"].iloc[-1])),
+            "target_date": target_date.date().isoformat(),
+            "probability": f"{stats['probability']:.4f}",
+            "model_id": MODEL_ID,
+            "train_n": str(stats["train_n"]),
+            "train_start": stats["train_start"],
+            "train_end": stats["train_end"],
+            "data_version": version,
+            "code_commit": commit,
+            "event_type": "",
+            "event_date": "",
+        }
+    ]
+
+
 def cmd_weekly(dry_run: bool, refresh: bool) -> None:
     if refresh:
         _refresh()
     frames, versions = _load_prices()
+    frames[BTC_ASSET], versions[BTC_ASSET] = _load_btc()
     commit = ledger.code_commit()
     now_utc = datetime.now(UTC).isoformat(timespec="seconds")
     forecasts = ledger.load_forecasts()
@@ -120,13 +210,22 @@ def cmd_weekly(dry_run: bool, refresh: bool) -> None:
             f"(Zieltag {r['resolution_date']})"
         )
 
-    fc_rows = _new_forecast_rows(frames, versions, set(forecasts["forecast_id"]), commit, now_utc)
+    existing_ids = set(forecasts["forecast_id"])
+    fc_rows = _new_forecast_rows(frames, versions, existing_ids, commit, now_utc)
+    fc_rows += _btc_forecast_rows(
+        frames[BTC_ASSET], versions[BTC_ASSET], existing_ids, commit, now_utc
+    )
     print(
         f"\nNeue Prognosen (Modelloutput klimatologie_v0, keine Anlageempfehlung): {len(fc_rows)}"
     )
     for r in fc_rows:
+        ziel = (
+            f"P(Close-Rendite > 0 über {BTC_HORIZON_DAYS} Kalendertage UTC)"
+            if r["horizon"] == BTC_HORIZON_LABEL
+            else f"P(Total-Return > 0 über {HORIZON_TRADING_DAYS} Handelstage)"
+        )
         print(
-            f"  {r['forecast_id']}: P(Total-Return > 0 über {HORIZON_TRADING_DAYS} Handelstage) "
+            f"  {r['forecast_id']}: {ziel} "
             f"= {r['probability']} · n = {r['train_n']} Fenster "
             f"({r['train_start']} – {r['train_end']}) · Anker {r['anchor_date']} "
             f"Close {r['anchor_close']} · Zieltag {r['target_date']} · "

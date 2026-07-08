@@ -107,6 +107,30 @@ def test_crosscheck_gegen_adj_close_fixture():
     assert tr_raw == pytest.approx(tr_adj, rel=1e-6)
 
 
+def test_base_rate_btc_horizont7_handrechnung():
+    """BTC-Zweig (btc_w1_up_v1): div_cash=0/split_factor=1 → Fenster-Return = Close-Verhältnis.
+
+    9 Kalendertage, horizon 7 → 2 Fenster: 105/100 − 1 > 0 → 1; 99/101 − 1 < 0 → 0.
+    Basisrate = 1/2 = 0.5.
+    """
+    close = [100.0, 101.0, 99.0, 98.0, 102.0, 103.0, 104.0, 105.0, 99.0]
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2026-01-01", periods=9, freq="D"),  # Kalendertage, 24/7
+            "close": close,
+            "div_cash": [0.0] * 9,
+            "split_factor": [1.0] * 9,
+        }
+    )
+    result = base_rate(df, horizon=7)
+    assert result["probability"] == pytest.approx(0.5)
+    assert result["train_n"] == 2
+    assert result["train_start"] == "2026-01-01"
+    assert result["train_end"] == "2026-01-09"
+    tr = window_return(df, df["date"].iloc[0], df["date"].iloc[7])
+    assert tr == pytest.approx(0.05)  # 105/100 − 1: reines Close-Verhältnis
+
+
 def test_zu_wenig_daten_und_unsortiert():
     with pytest.raises(ValueError, match="zu wenig Daten"):
         base_rate(_frame([100.0] * 5))

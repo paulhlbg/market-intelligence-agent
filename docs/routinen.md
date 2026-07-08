@@ -6,23 +6,30 @@ Empfohlener Zeitpunkt: Wochenende oder Montag vor Börsenöffnung (Anker ist dan
 der Freitags-Schlusskurs). Die Zieldefinition hängt nur am letzten verfügbaren
 Schlusskurs — ein verschobener Lauf verfälscht nichts, er verschiebt nur den
 Anker. Ein zweiter Lauf am selben Tag ist unschädlich (gleiche forecast_id wird
-erkannt und übersprungen).
+erkannt und übersprungen). BTC-Anker ist der letzte **abgeschlossene**
+UTC-Kalendertag (die Kerze des laufenden Tages wird verworfen) — er kann daher
+von den SPY/QQQ-Ankertagen abweichen; das ist normal.
 
 1. `uv run python -m mie.a4_ledger weekly`
-   (frischt den Tiingo-Cache auf, löst fällige Prognosen auf, hängt je Asset
-   eine neue 1-Wochen-Prognose an; `TIINGO_API_KEY` muss gesetzt sein)
+   (frischt Tiingo-Cache SPY+QQQ und Coinbase-Cache BTC auf, löst fällige
+   Prognosen auf, hängt je Asset eine neue 1-Wochen-Prognose an — SPY/QQQ:
+   5 Handelstage, BTC: 7 Kalendertage UTC; `TIINGO_API_KEY` muss gesetzt sein)
 2. Ausgabe gegenlesen: plausible Basisrate, richtige Anker-/Zieltage,
    Auflösungen nachvollziehbar.
 3. `make check`
-4. Committen, z. B.: `git commit -am "ledger: Wochenlauf YYYY-MM-DD (SPY, QQQ)"`
+4. Committen, z. B.: `git commit -am "ledger: Wochenlauf YYYY-MM-DD (SPY, QQQ, BTC)"`
 
 Zwischendurch: `uv run python -m mie.a4_ledger status` zeigt offene und
 aufgelöste Prognosen.
 
 ### Wenn etwas schiefgeht
 
-- **Tiingo nicht erreichbar:** Lauf einfach später wiederholen. Kein stiller
-  Quellenwechsel (docs/zieldefinitionen.md).
+- **Tiingo oder Coinbase nicht erreichbar:** Lauf einfach später wiederholen.
+  Kein stiller Quellenwechsel (docs/zieldefinitionen.md).
+- **„Feed-Lücke am Zieltag" oder „Kalendertag-Lücke(n)" (BTC):** Für BTC gibt
+  es keinen Ausweichtag (24/7-Handel, jeder Kalendertag zählt). Nichts
+  reparieren, Projektinhaber fragen — Vorfall bekannt: der Tiingo-Krypto-Feed
+  hatte am 2026-02-15 eine echte Lücke (docs/reports/a6_btc_quellen.md).
 - **„Append-only verletzt":** Alte Ledger-Zeilen wurden verändert oder gelöscht.
   Nichts reparieren, `git diff ledger/` ansehen und den Projektinhaber fragen.
 - **„laut NYSE-Kalender Handelstag, fehlt aber im Tiingo-Cache":** Entweder

@@ -61,6 +61,17 @@ def test_partial_overlap_counted():
     assert r["close"]["all"]["exceed"] == 0
 
 
+def test_columns_parameter_close_only():
+    """BTC-Frames (A6) haben kein adj_close — Vergleich nur über columns=("close",)."""
+    df_a = make_frame(PRE, [100.0, 100.0, 100.6, 100.0]).drop(columns=["adj_close"])
+    df_b = make_frame(PRE, [100.0] * 4).drop(columns=["adj_close"])
+    r = crosscheck(df_a, df_b, "a", "b", tolerance=0.005, columns=("close",))
+    assert "adj_close" not in r
+    assert r["close"]["all"]["exceed"] == 1
+    assert r["close"]["all"]["max"] == pytest.approx(0.006)
+    assert r["close"]["last_exceed_day"] == "2024-12-30"
+
+
 def test_identical_sources_zero_deviation():
     df = make_frame(PRE, [101.5, 102.0, 103.3, 99.9])
     r = crosscheck(df, df.copy(), "a", "b")

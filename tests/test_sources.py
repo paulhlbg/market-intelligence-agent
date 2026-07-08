@@ -7,9 +7,18 @@ durch 5 echte Datensätze ersetzt (probe --freeze-fixture) und so verifiziert.
 
 from pathlib import Path
 
-from mie.sources import STANDARD_COLUMNS, tiingo, validate_standard_frame, yahoo
+from mie.sources import (
+    STANDARD_COLUMNS,
+    coinbase,
+    tiingo,
+    tiingo_crypto,
+    validate_standard_frame,
+    yahoo,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+BTC_COLUMNS = ["date", "open", "high", "low", "close", "volume"]
 
 
 def test_yahoo_parse_standard_schema():
@@ -39,6 +48,31 @@ def test_tiingo_parse_standard_schema_plus_extras():
     assert (df["split_factor"] == 1).all()
     # Adjustierte Kurse liegen vor der Dezember-Dividende unter den rohen
     assert (df["adj_close"] < df["close"]).all()
+
+
+def test_tiingo_crypto_parse():
+    # Fixture = 5 echte API-Datensätze (BTC 01.–05.06.2026), eingefroren am 08.07.2026
+    # via `mie.a6_btc_quellen probe --freeze-fixture` — verifiziert das reale Response-Format
+    # (ein Ticker-Objekt mit verschachteltem priceData, UTC-Mitternachts-Stempel).
+    df = tiingo_crypto.parse_cached(FIXTURES / "tiingo_crypto_btcusd_sample.json")
+    assert list(df.columns) == BTC_COLUMNS
+    assert len(df) == 5
+    assert df["date"].iloc[0].isoformat() == "2026-06-01T00:00:00"
+    assert df["date"].is_monotonic_increasing
+    assert (df["close"] > 0).all()
+
+
+def test_coinbase_parse():
+    # Fixture = 5 echte Kerzen (BTC-USD 01.–05.06.2026), eingefroren am 08.07.2026 —
+    # verifiziert das reale Format [time, low, high, open, close, volume],
+    # time = Bucket-Start in Epochensekunden UTC.
+    df = coinbase.parse_cached(FIXTURES / "coinbase_btcusd_sample.json")
+    assert list(df.columns) == BTC_COLUMNS
+    assert len(df) == 5
+    assert df["date"].iloc[0].isoformat() == "2026-06-01T00:00:00"
+    assert df["date"].is_monotonic_increasing
+    assert (df["low"] <= df[["open", "close"]].min(axis=1)).all()
+    assert (df["high"] >= df[["open", "close"]].max(axis=1)).all()
 
 
 def test_validate_standard_frame_detects_problems():
