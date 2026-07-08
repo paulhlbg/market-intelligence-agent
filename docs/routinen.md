@@ -32,3 +32,29 @@ aufgelöste Prognosen.
 
 Alle ausgegebenen Wahrscheinlichkeiten sind Modelloutputs (Klimatologie-
 Basisrate) — Szenario-Rechnungen, keine Anlageempfehlung.
+
+## Experiment registrieren (Registry v0, bei Bedarf)
+
+Regel R6 / Verfassung §4: **registrieren vor auswerten**. Die Auswertungen
+selbst sind Phase B und einzeln freigabepflichtig — diese Routine registriert
+nur.
+
+1. Hypothesen-Datei `registry/hypothesen/<experiment_id>.md` schreiben:
+   Frontmatter (`experiment_id`, `typ` = replikation|exploration, `titel`,
+   `assets`, `datenbasis`, `fenster_start`, `fenster_ende`; Werte kommafrei)
+   plus Volltext (Quelle, Hypothese, exakte Operationalisierung,
+   Auswertungsplan, Grenzen). Das Auswertungsfenster endet vor dem
+   Lockbox-Stichtag 01.01.2025 — reicht es hinein, lässt sich der Eintrag
+   später nur als Lockbox-Auswertung auswerten (Zähler, maximal 2).
+2. Aktuellen Code-Stand committen (die Registry-Zeile referenziert den
+   Commit-Hash).
+3. `uv run python -m mie.a5_registry register registry/hypothesen/<id>.md`
+   (erst mit `--dry-run` gegenlesen). Ab dem Registrieren ist die Datei per
+   SHA-256 eingefroren — Änderungswunsch = neues Experiment mit neuer ID.
+4. `make check`, dann committen, z. B.:
+   `git commit -am "registry: <experiment_id> registriert"`
+
+Zwischendurch: `uv run python -m mie.a5_registry status` zeigt alle
+Experimente samt Ergebnisfeld und Lockbox-Zähler;
+`uv run python -m mie.a5_registry check` prüft Schema, Hypothesen-Hashes,
+Referenzen und Lockbox-Limit (läuft auch in den Tests mit).
