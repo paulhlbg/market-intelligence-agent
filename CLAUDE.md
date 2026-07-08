@@ -3,7 +3,7 @@
 Verbindlicher Projektstand für Claude Code. Stand: 06.07.2026.
 Diese Datei ist die maßgebliche Arbeitsgrundlage im Repo. Bei Unklarheit oder Widerspruch: stoppen und den Projektinhaber fragen — nichts still entscheiden.
 
-**Umsetzungsstand:** A2 abgeschlossen (07.07.2026). Ticker-Festlegung (§3.1) am 07.07.2026 bewusst vertagt — spätestens vor A4-Zieldefinition nötig; Empfehlung SPY+QQQ liegt in docs/reports/a2_quellen.md. Nächstes Arbeitspaket: A3. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
+**Umsetzungsstand:** A3 abgeschlossen (08.07.2026); Restpunkt: FRED-Kreuzabgleich CPI läuft erst nach Anlage von FRED_API_KEY (Aktion Projektinhaber, siehe docs/reports/a3_quellen.md §1). Ticker-Festlegung (§3.1) weiter offen — spätestens vor A4-Zieldefinition nötig; Empfehlung SPY+QQQ liegt in docs/reports/a2_quellen.md. Nächstes Arbeitspaket: A4. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
 
 ## 1. Rolle und Arbeitsweise
 
