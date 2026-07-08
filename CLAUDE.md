@@ -3,7 +3,7 @@
 Verbindlicher Projektstand für Claude Code. Stand: 06.07.2026.
 Diese Datei ist die maßgebliche Arbeitsgrundlage im Repo. Bei Unklarheit oder Widerspruch: stoppen und den Projektinhaber fragen — nichts still entscheiden.
 
-**Umsetzungsstand:** A4 abgeschlossen (08.07.2026): Append-only-Ledger mit klimatologie_v0 läuft, erste Prognosen registriert (SPY/QQQ, Zieltag 14.07.2026); Zieldefinition w1_up_v1 in docs/zieldefinitionen.md, Wochenroutine in docs/routinen.md. Ticker-Festlegung (§3.1) am 08.07.2026 erfolgt: SPY + QQQ. Nächstes Arbeitspaket: A5 (Registry v0). (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
+**Umsetzungsstand:** A5 abgeschlossen (08.07.2026): Registry v0 läuft (append-only wie der Ledger, gemeinsamer Kern src/mie/appendonly.py; Hypothesen-Volltexte per SHA-256 eingefroren; Lockbox-Auswertungszähler 0 von 2, Limit code-erzwungen). Drei Replikationshypothesen (§3.7) registriert, NICHT ausgewertet: rep_pre_fomc_drift, rep_announcement_day_praemie, rep_ereignistag_volatilitaet (Fenster bis 31.12.2024); CLI mie.a5_registry, Routine in docs/routinen.md. Ledger-Wochenroutine läuft weiter (A4). Nächstes Arbeitspaket: A6 (optional, BTC-Ledger-Zweig — Entscheidung Projektinhaber, ersatzlos streichbar); Phase B-ES bleibt einzeln freigabepflichtig. (Diese Zeile nach jedem abgeschlossenen Paket aktualisieren.)
 
 ## 1. Rolle und Arbeitsweise
 
