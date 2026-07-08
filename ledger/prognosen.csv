@@ -1,1 +1,3 @@
 forecast_id,created_utc,asset,horizon,target_id,anchor_date,anchor_close,target_date,probability,model_id,train_n,train_start,train_end,data_version,code_commit,event_type,event_date
+2026-07-07_spy_w1,2026-07-08T16:05:16+00:00,SPY,w1_5td,w1_up_v1,2026-07-07,747.71,2026-07-14,0.5891,klimatologie_v0,8410,1993-01-29,2026-07-07,34117288d1a8b3758d9f50606d2859e1359fd8705d61cae841b23bc83b6d7e30,9d06802,,
+2026-07-07_qqq_w1,2026-07-08T16:05:16+00:00,QQQ,w1_5td,w1_up_v1,2026-07-07,709.43,2026-07-14,0.5766,klimatologie_v0,6868,1999-03-10,2026-07-07,6dc58e10ef6e21a6125cdccb79a37da4e8dd685a1c1b1afc4c269babb9e70477,9d06802,,
