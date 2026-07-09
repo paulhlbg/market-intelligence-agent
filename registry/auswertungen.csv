@@ -1,1 +1,2 @@
 experiment_id,evaluated_utc,lockbox,ergebnis_kurz,report_datei,data_version,code_commit
+rep_ereignistag_volatilitaet,2026-07-09T19:49:07+00:00,0,Mittelwert |Tages-TR| Ereignis-Baseline gepoolt: SPY +0.060pp KI[-0.011;+0.134]; QQQ +0.038pp KI[-0.072;+0.151]; primaere KIs > 0: 0/6; Placebo-KIs ueberdecken 0: 6/6,docs/reports/b_es_rep_ereignistag_volatilitaet.md,tiingo_spy=f306a5612bf8+tiingo_qqq=f23b7f8a5c9e+fomc=31a1a014398c+cpi=89450a8d335a,203b743
