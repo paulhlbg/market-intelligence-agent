@@ -1,6 +1,6 @@
 # A6 — BTC-Quellenprüfung und Nutzungsbedingungen (manuell verfasst)
 
-Stand: 08.07.2026 · Ergänzt den generierten Qualitätsreport `a6_btc_kursdaten.md`.
+Stand: 09.07.2026 (§2: Coinbase-Terms gegengelesen) · Ergänzt den generierten Qualitätsreport `a6_btc_kursdaten.md`.
 Alle Zahlen in diesem Dokument stammen aus dem committeten Code des
 Qualitätsreports (R1, `uv run python -m mie.a6_btc_quellen report`); dieses
 Dokument ergänzt Einordnung, Nutzungsbedingungen und den Quellen-Beschluss.
@@ -35,10 +35,12 @@ Kraken/CoinGecko wurden nicht angefasst, weil die zweite geprüfte Quelle
   08.07.2026) bindet die Nutzung der Exchange-Market-Data-API an die „Market
   Data Terms of Use" (coinbase.com/legal/market_data). Die Terms-Seite selbst
   ist nur im Browser lesbar (HTTP 403 für Skripte) —
-  **Handlungspunkt: einmal manuell im Browser gegenlesen.** Vorsorglich gilt
-  dieselbe konservative Haltung wie bei Tiingo: Rohdaten bleiben lokal
-  (`data/raw/` ist gitignored), im Repo liegt nur ein 5-Kerzen-Fixture für
-  Format-Tests.
+  **Handlungspunkt erledigt: manuell im Browser gegengelesen am 09.07.2026
+  durch den Projektinhaber; Ergebnis: unbedenklich für unsere Nutzung**
+  (private Forschungsnutzung, Rohdaten nur im lokalen Cache, keine
+  Redistribution). Die konservative Haltung wie bei Tiingo bleibt bestehen:
+  Rohdaten bleiben lokal (`data/raw/` ist gitignored), im Repo liegt nur ein
+  5-Kerzen-Fixture für Format-Tests.
 
 ### Tiingo Krypto-Endpoint — Kreuzabgleich
 
