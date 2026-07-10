@@ -13,14 +13,42 @@ von den SPY/QQQ-Ankertagen abweichen; das ist normal.
 1. `uv run python -m mie.a4_ledger weekly`
    (frischt Tiingo-Cache SPY+QQQ und Coinbase-Cache BTC auf, löst fällige
    Prognosen auf, hängt je Asset eine neue 1-Wochen-Prognose an — SPY/QQQ:
-   5 Handelstage, BTC: 7 Kalendertage UTC; `TIINGO_API_KEY` muss gesetzt sein)
-2. Ausgabe gegenlesen: plausible Basisrate, richtige Anker-/Zieltage,
-   Auflösungen nachvollziehbar.
+   5 Handelstage, BTC: 7 Kalendertage UTC; `TIINGO_API_KEY` muss gesetzt sein —
+   und registriert FOMC/CPI-Termine der nächsten 10 Kalendertage, sofern deren
+   Registrierungs-Deadline noch nicht verstrichen ist; B4,
+   docs/zieldefinitionen.md)
+2. Ausgabe gegenlesen: plausible Basisraten, richtige Anker-/Zieltage,
+   Auflösungen nachvollziehbar, Ereignis-Meldungen (registriert/ausgesetzt/
+   Deadline verpasst) plausibel.
 3. `make check`
 4. Committen, z. B.: `git commit -am "ledger: Wochenlauf YYYY-MM-DD (SPY, QQQ, BTC)"`
 
 Zwischendurch: `uv run python -m mie.a4_ledger status` zeigt offene und
 aufgelöste Prognosen.
+
+### Ereigniszweig (B4): FOMC/CPI-Prognosen
+
+Der Wochenlauf deckt Termine der nächsten 10 Kalendertage automatisch mit ab.
+Liegt eine Registrierungs-Deadline **vor** dem nächsten Wochenlauf (Deadline =
+Börsenschluss des letzten Handelstags vor dem Termin, i. d. R. 16:00 ET =
+22:00/21:00 deutscher Zeit), gibt es den schlanken Zwischenlauf:
+
+1. `uv run python -m mie.a4_ledger events`
+   (nur Tiingo-Refresh SPY+QQQ; löst fällige Ereignis-Prognosen auf und
+   registriert kommende Termine — je Termin und Asset zwei Zeilen:
+   `klimatologie_ev_v0` und Referenz `klimatologie_alltage_v0`)
+2. Ausgabe gegenlesen, `make check`, committen, z. B.:
+   `git commit -am "ledger: Ereignislauf YYYY-MM-DD (CPI/FOMC)"`
+
+Regeln (docs/zieldefinitionen.md): verpasste Deadline ⇒ Termin wird ehrlich
+ausgelassen (kein Nachtragen); FOMC=CPI-Überlappungstage werden ausgesetzt;
+Brier/Log-Loss/Kalibrierung erst nach genügend aufgelösten Ereignissen
+(≈ 20/Jahr → Größenordnung ein Jahr) — bis dahin reine Buchführung.
+
+**Merkposten (R2, jährlich ca. Dezember):** Die CPI-Terminliste reicht bis
+Dez. 2026, die FOMC-Liste bis Dez. 2027 — rechtzeitig vorher per A3-Skripten
+auffrischen (`uv run python -m mie.a3_termine …`, siehe docs/reports/
+a3_termine.md), sonst können keine Termine mehr registriert werden.
 
 ### Wenn etwas schiefgeht
 

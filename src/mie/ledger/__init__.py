@@ -24,6 +24,10 @@ from mie.sources import REPO_ROOT
 
 TARGET_W1_UP_V1 = "w1_up_v1"
 TARGET_BTC_W1_UP_V1 = "btc_w1_up_v1"  # BTC-Zweig (A6): 7 Kalendertage UTC, kein Börsenkalender
+TARGET_FOMC_ON_UP_V1 = "fomc_on_up_v1"  # B4: Overnight-TR > 0 am FOMC-Statement-Tag
+TARGET_CPI_D1_UP_V1 = "cpi_d1_up_v1"  # B4: Tages-TR > 0 am CPI-Release-Tag
+EVENT_TARGETS = {TARGET_FOMC_ON_UP_V1, TARGET_CPI_D1_UP_V1}
+EVENT_TYPES = {"fomc", "cpi"}
 
 FORECAST_COLUMNS = [
     "forecast_id",
@@ -107,6 +111,15 @@ def validate_forecast_row(row: dict) -> list[str]:
         and row["target_date"] <= row["anchor_date"]
     ):
         problems.append("target_date: muss nach anchor_date liegen")
+    if row["event_type"] and row["event_type"] not in EVENT_TYPES:
+        problems.append(f"event_type: muss leer oder eines von {sorted(EVENT_TYPES)} sein")
+    if row["event_type"] and not appendonly.is_iso_date(row["event_date"]):
+        problems.append("event_date: kein ISO-Datum")
+    if row["target_id"] in EVENT_TARGETS:
+        if not row["event_type"]:
+            problems.append("event_type: Pflichtfeld bei Ereignis-Zielen")
+        elif row["event_date"] != row["target_date"]:
+            problems.append("event_date: muss bei Ereignis-Zielen gleich target_date sein")
     return problems
 
 
@@ -188,6 +201,40 @@ def next_trading_days(after: pd.Timestamp, n: int) -> pd.DatetimeIndex:
     return days[:n]
 
 
+def _ereignis_realized_return(
+    frame: pd.DataFrame, event_date: pd.Timestamp, target_id: str
+) -> float:
+    """Zielgröße eines Ereignis-Ziels am Ereignistag (docs/zieldefinitionen.md, B4).
+
+    Das Messfenster beginnt am Schluss der Vortages-Session; deshalb wird
+    geprüft, dass die Frame-Zeile vor dem Ereignistag wirklich die letzte
+    NYSE-Session davor ist — eine Lücke dort würde das Fenster verfälschen.
+    """
+    from mie.ledger import ereignis  # lokaler Import: ereignis nutzt Konstanten dieses Moduls
+
+    dates = frame["date"]
+    i = int(dates.searchsorted(event_date))
+    if i >= len(dates) or dates.iloc[i] != event_date:
+        raise LedgerError(f"Ereignistag {event_date.date()} nicht im Kursframe")
+    if i == 0:
+        raise LedgerError(f"kein Handelstag vor Ereignistag {event_date.date()} im Kursframe")
+    vortag = dates.iloc[i - 1]
+    sessions = expected_trading_days(event_date - pd.Timedelta(days=14), event_date)
+    sessions = sessions[sessions < event_date]
+    if len(sessions) == 0 or vortag != sessions[-1]:
+        raise LedgerError(
+            f"Vortages-Session vor Ereignistag {event_date.date()} fehlt im Kursframe "
+            f"(Frame-Vortag {vortag.date()}, Kalender erwartet "
+            f"{sessions[-1].date() if len(sessions) else '—'}) — Datenlücke am "
+            "Fensterbeginn. Stoppen und Projektinhaber fragen."
+        )
+    serie = ereignis.mess_serie(frame, target_id)
+    wert = serie.loc[serie["date"] == event_date, "wert"]
+    if len(wert) != 1:
+        raise LedgerError(f"Zielgröße für {event_date.date()} nicht eindeutig bestimmbar")
+    return float(wert.iloc[0])
+
+
 def due_resolutions(
     forecasts: pd.DataFrame,
     resolutions: pd.DataFrame,
@@ -196,7 +243,7 @@ def due_resolutions(
     commit: str,
     now_utc: str,
 ) -> list[dict]:
-    """Auflösungszeilen für alle fälligen offenen Prognosen (w1_up_v1 und btc_w1_up_v1).
+    """Auflösungszeilen für alle fälligen offenen Prognosen (alle bekannten Ziele).
 
     Nachtrag-Regel für w1_up_v1 laut docs/zieldefinitionen.md: Fehlt der geplante
     target_date im Kursframe und ist er laut (gepinntem) NYSE-Kalender kein
@@ -204,12 +251,14 @@ def due_resolutions(
     Handelstag, wird abgebrochen — Datenlücke oder eine Schließung, die der
     gepinnte Kalender noch nicht kennt; das entscheidet der Projektinhaber,
     nicht das Skript. Für btc_w1_up_v1 gibt es KEINEN Ausweichtag: BTC handelt
-    24/7, ein fehlender Zieltag ist immer eine Feed-Lücke → Abbruch.
+    24/7, ein fehlender Zieltag ist immer eine Feed-Lücke → Abbruch. Auch für
+    die Ereignis-Ziele (fomc_on_up_v1/cpi_d1_up_v1) gibt es keinen Ausweichtag:
+    Ein fehlender Ereignistag ist Datenlücke oder verschobener Termin → Abbruch.
     """
     rows: list[dict] = []
     open_rows = forecasts[~forecasts["forecast_id"].isin(set(resolutions["forecast_id"]))]
     for _, r in open_rows.iterrows():
-        if r["target_id"] not in {TARGET_W1_UP_V1, TARGET_BTC_W1_UP_V1}:
+        if r["target_id"] not in {TARGET_W1_UP_V1, TARGET_BTC_W1_UP_V1} | EVENT_TARGETS:
             raise LedgerError(f"{r['forecast_id']}: unbekannte target_id {r['target_id']!r}")
         frame = prices.get(r["asset"])
         if frame is None:
@@ -225,6 +274,13 @@ def due_resolutions(
                 f"{r['forecast_id']}: {target.date()} fehlt im Kursframe trotz späterer "
                 "Tage — Feed-Lücke am Zieltag; für BTC gibt es keinen Ausweichtag "
                 "(docs/zieldefinitionen.md). Stoppen und Projektinhaber fragen."
+            )
+        elif r["target_id"] in EVENT_TARGETS:
+            raise LedgerError(
+                f"{r['forecast_id']}: Ereignistag {target.date()} fehlt im Kursframe trotz "
+                "späterer Tage — Datenlücke, verschobener Termin oder Schließung; für "
+                "Ereignis-Ziele gibt es keinen Ausweichtag (docs/zieldefinitionen.md). "
+                "Stoppen und Projektinhaber fragen."
             )
         else:
             if len(expected_trading_days(target, target)) > 0:
@@ -252,7 +308,10 @@ def due_resolutions(
             )
         # outcome aus dem gespeicherten (auf 6 Stellen gerundeten) Wert, damit die
         # Zeile in sich konsistent bleibt (Validator prüft outcome gegen realized_return).
-        tr = round(window_return(frame, anchor, resolution_date), 6)
+        if r["target_id"] in EVENT_TARGETS:
+            tr = round(_ereignis_realized_return(frame, target, r["target_id"]), 6)
+        else:
+            tr = round(window_return(frame, anchor, resolution_date), 6)
         rows.append(
             {
                 "forecast_id": r["forecast_id"],

@@ -2,15 +2,25 @@
 
 Aufrufe (aus dem Repo-Wurzelverzeichnis):
     uv run python -m mie.a4_ledger weekly [--dry-run] [--no-refresh]
+    uv run python -m mie.a4_ledger events [--dry-run] [--no-refresh]
     uv run python -m mie.a4_ledger status
 
 weekly: (1) Tiingo-Cache SPY+QQQ und Coinbase-Cache BTC auffrischen, (2) fällige
 Prognosen auflösen, (3) je Asset eine 1-Wochen-Prognose anhängen (klimatologie_v0;
 SPY/QQQ: Ziel w1_up_v1 über 5 Handelstage, BTC: Ziel btc_w1_up_v1 über
-7 Kalendertage UTC — docs/zieldefinitionen.md). Alle ausgegebenen
-Wahrscheinlichkeiten sind Modelloutputs (Klimatologie-Basisrate) — keine
-Anlageempfehlung. Netzzugriff passiert nur hier (CLI), nie in Tests. Danach:
-Ausgabe gegenlesen, `make check`, committen (docs/routinen.md).
+7 Kalendertage UTC — docs/zieldefinitionen.md), (4) kommende FOMC/CPI-Termine
+registrieren (B4: Ziele fomc_on_up_v1/cpi_d1_up_v1, Modelle klimatologie_ev_v0
++ Referenz klimatologie_alltage_v0 — mie.ledger.ereignis).
+
+events: nur der Ereigniszweig (Tiingo-Refresh SPY+QQQ, fällige
+Ereignis-Auflösungen, kommende Termine registrieren) — für Läufe zwischen den
+Wochenläufen, wenn eine Registrierungs-Deadline vor dem nächsten Wochenlauf
+liegt.
+
+Alle ausgegebenen Wahrscheinlichkeiten sind Modelloutputs
+(Klimatologie-Basisraten) — keine Anlageempfehlung. Netzzugriff passiert nur
+hier (CLI), nie in Tests. Danach: Ausgabe gegenlesen, `make check`, committen
+(docs/routinen.md).
 """
 
 import argparse
@@ -21,6 +31,7 @@ import pandas as pd
 
 from mie import ledger
 from mie.checks import check_duplicates, check_gaps
+from mie.ledger import ereignis
 from mie.ledger.klimatologie import HORIZON_TRADING_DAYS, base_rate
 from mie.sources import coinbase, raw_paths, read_meta, tiingo, validate_standard_frame
 
@@ -33,7 +44,7 @@ BTC_HORIZON_LABEL = "w1_7cd"
 BTC_HORIZON_DAYS = 7  # Kalendertage UTC (docs/zieldefinitionen.md, btc_w1_up_v1)
 
 
-def _refresh() -> None:
+def _refresh_etfs() -> None:
     for ticker in ASSETS:
         try:
             _, meta = tiingo.download_daily(ticker)
@@ -43,6 +54,10 @@ def _refresh() -> None:
                 "kein stiller Quellenwechsel (docs/zieldefinitionen.md)."
             ) from exc
         print(f"tiingo/{ticker}: {meta['rows']} Zeilen (sha256 {meta['sha256'][:12]}…)")
+
+
+def _refresh() -> None:
+    _refresh_etfs()
     try:
         _, meta = coinbase.download_daily()
     except OSError as exc:
@@ -192,6 +207,54 @@ def _btc_forecast_rows(
     ]
 
 
+def _ziel_text(r: dict) -> str:
+    if r["horizon"] == BTC_HORIZON_LABEL:
+        return f"P(Close-Rendite > 0 über {BTC_HORIZON_DAYS} Kalendertage UTC)"
+    if r["horizon"] == ereignis.HORIZON[ereignis.EV_FOMC]:
+        return f"P(Overnight-TR > 0 am FOMC-Statement-Tag {r['event_date']})"
+    if r["horizon"] == ereignis.HORIZON[ereignis.EV_CPI]:
+        return f"P(Tages-TR > 0 am CPI-Release-Tag {r['event_date']})"
+    return f"P(Total-Return > 0 über {HORIZON_TRADING_DAYS} Handelstage)"
+
+
+def _print_resolutions(res_rows: list[dict]) -> None:
+    for r in res_rows:
+        print(
+            f"  {r['forecast_id']}: TR {r['realized_return']} → outcome {r['outcome']} "
+            f"(Zieltag {r['resolution_date']})"
+        )
+
+
+def _print_forecasts(fc_rows: list[dict]) -> None:
+    for r in fc_rows:
+        print(
+            f"  {r['forecast_id']}: {_ziel_text(r)} "
+            f"= {r['probability']} [{r['model_id']}] · n = {r['train_n']} "
+            f"({r['train_start']} – {r['train_end']}) · Anker {r['anchor_date']} "
+            f"Close {r['anchor_close']} · Zieltag {r['target_date']} · "
+            f"Daten sha256 {r['data_version'][:12]}… · Commit {r['code_commit']}"
+        )
+
+
+def _ereignis_rows(
+    frames: dict[str, pd.DataFrame],
+    versions: dict[str, str],
+    existing_ids: set[str],
+    commit: str,
+    now_utc: str,
+) -> list[dict]:
+    """Ereigniszweig (B4): kommende Termine registrieren, jeden Termin ausweisen."""
+    ev_rows, meldungen = ereignis.neue_ereignis_zeilen(
+        frames, versions, existing_ids, commit, now_utc
+    )
+    print(f"\nEreignis-Termine (FOMC/CPI, nächste {ereignis.LOOKAHEAD_TAGE} Kalendertage):")
+    if not meldungen:
+        print("  keine Termine im Fenster")
+    for m in meldungen:
+        print(f"  {m}")
+    return ev_rows
+
+
 def cmd_weekly(dry_run: bool, refresh: bool) -> None:
     if refresh:
         _refresh()
@@ -204,33 +267,50 @@ def cmd_weekly(dry_run: bool, refresh: bool) -> None:
 
     res_rows = ledger.due_resolutions(forecasts, resolutions, frames, versions, commit, now_utc)
     print(f"\nFällige Auflösungen: {len(res_rows)}")
-    for r in res_rows:
-        print(
-            f"  {r['forecast_id']}: TR {r['realized_return']} → outcome {r['outcome']} "
-            f"(Zieltag {r['resolution_date']})"
-        )
+    _print_resolutions(res_rows)
 
     existing_ids = set(forecasts["forecast_id"])
     fc_rows = _new_forecast_rows(frames, versions, existing_ids, commit, now_utc)
     fc_rows += _btc_forecast_rows(
         frames[BTC_ASSET], versions[BTC_ASSET], existing_ids, commit, now_utc
     )
+    fc_rows += _ereignis_rows(frames, versions, existing_ids, commit, now_utc)
+    print(f"\nNeue Prognosen (Modelloutputs Klimatologie, keine Anlageempfehlung): {len(fc_rows)}")
+    _print_forecasts(fc_rows)
+
+    if dry_run:
+        print("\nDRY-RUN: nichts geschrieben.")
+        return
+    n_res = ledger.append_resolutions(res_rows)
+    n_fc = ledger.append_forecasts(fc_rows)
     print(
-        f"\nNeue Prognosen (Modelloutput klimatologie_v0, keine Anlageempfehlung): {len(fc_rows)}"
+        f"\nAngehängt: {n_res} Auflösung(en), {n_fc} Prognose(n). "
+        "Jetzt: Ausgabe gegenlesen, `make check`, committen (docs/routinen.md)."
     )
-    for r in fc_rows:
-        ziel = (
-            f"P(Close-Rendite > 0 über {BTC_HORIZON_DAYS} Kalendertage UTC)"
-            if r["horizon"] == BTC_HORIZON_LABEL
-            else f"P(Total-Return > 0 über {HORIZON_TRADING_DAYS} Handelstage)"
-        )
-        print(
-            f"  {r['forecast_id']}: {ziel} "
-            f"= {r['probability']} · n = {r['train_n']} Fenster "
-            f"({r['train_start']} – {r['train_end']}) · Anker {r['anchor_date']} "
-            f"Close {r['anchor_close']} · Zieltag {r['target_date']} · "
-            f"Daten sha256 {r['data_version'][:12]}… · Commit {r['code_commit']}"
-        )
+
+
+def cmd_events(dry_run: bool, refresh: bool) -> None:
+    """Nur Ereigniszweig: fällige Ereignis-Auflösungen + kommende Termine registrieren."""
+    if refresh:
+        _refresh_etfs()
+    frames, versions = _load_prices()
+    commit = ledger.code_commit()
+    now_utc = datetime.now(UTC).isoformat(timespec="seconds")
+    forecasts = ledger.load_forecasts()
+    resolutions = ledger.load_resolutions()
+
+    ev_forecasts = forecasts[forecasts["target_id"].isin(ledger.EVENT_TARGETS)]
+    res_rows = ledger.due_resolutions(ev_forecasts, resolutions, frames, versions, commit, now_utc)
+    print(f"\nFällige Ereignis-Auflösungen: {len(res_rows)}")
+    _print_resolutions(res_rows)
+
+    existing_ids = set(forecasts["forecast_id"])
+    fc_rows = _ereignis_rows(frames, versions, existing_ids, commit, now_utc)
+    print(
+        f"\nNeue Ereignis-Prognosen (Modelloutputs Klimatologie, "
+        f"keine Anlageempfehlung): {len(fc_rows)}"
+    )
+    _print_forecasts(fc_rows)
 
     if dry_run:
         print("\nDRY-RUN: nichts geschrieben.")
@@ -266,18 +346,26 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_weekly = sub.add_parser(
-        "weekly", help="Wochenroutine: auffrischen, auflösen, prognostizieren"
+        "weekly", help="Wochenroutine: auffrischen, auflösen, prognostizieren (inkl. Ereignisse)"
     )
-    p_weekly.add_argument("--dry-run", action="store_true", help="nur anzeigen, nichts schreiben")
-    p_weekly.add_argument(
-        "--no-refresh", action="store_true", help="ohne Tiingo-Abruf (vorhandenen Cache verwenden)"
+    p_events = sub.add_parser(
+        "events", help="nur Ereigniszweig: FOMC/CPI-Prognosen registrieren und auflösen"
     )
+    for p in (p_weekly, p_events):
+        p.add_argument("--dry-run", action="store_true", help="nur anzeigen, nichts schreiben")
+        p.add_argument(
+            "--no-refresh",
+            action="store_true",
+            help="ohne Tiingo-Abruf (vorhandenen Cache verwenden)",
+        )
 
     sub.add_parser("status", help="offene/aufgelöste Prognosen anzeigen")
 
     args = parser.parse_args(argv)
     if args.cmd == "weekly":
         cmd_weekly(dry_run=args.dry_run, refresh=not args.no_refresh)
+    elif args.cmd == "events":
+        cmd_events(dry_run=args.dry_run, refresh=not args.no_refresh)
     else:
         cmd_status()
     return 0

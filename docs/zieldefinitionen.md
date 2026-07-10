@@ -1,7 +1,9 @@
 # Zieldefinitionen (Ledger)
 
-**Stand: 08.07.2026 · `w1_up_v1`/`klimatologie_v0` festgelegt vom Projektinhaber
-am 08.07.2026 (A4-Plan) · `btc_w1_up_v1` festgelegt am 08.07.2026 (A6).**
+**Stand: 10.07.2026 · `w1_up_v1`/`klimatologie_v0` festgelegt vom Projektinhaber
+am 08.07.2026 (A4-Plan) · `btc_w1_up_v1` festgelegt am 08.07.2026 (A6) ·
+`fomc_on_up_v1`/`cpi_d1_up_v1`/`klimatologie_ev_v0`/`klimatologie_alltage_v0`
+festgelegt am 10.07.2026 (B4-Plan, Entscheidungen a–d des Projektinhabers).**
 
 Jede Prognose im Ledger verweist über `target_id` auf genau eine Definition in
 dieser Datei. Definitionen sind unveränderlich: Eine inhaltliche Änderung ergibt
@@ -121,3 +123,120 @@ Ereignisstudien-Statistik.
   Börsenöffnung → die Marktreaktion beginnt mit der Eröffnung desselben Tages.
 - **Registrierung:** ereignisbezogene Prognosen spätestens **T−1** vor dem
   Termin (CLAUDE.md §3.4).
+
+## Gemeinsame Regeln der Ereignis-Ziele (B4, festgelegt 10.07.2026)
+
+Gelten für `fomc_on_up_v1` und `cpi_d1_up_v1`; Umsetzung in
+`src/mie/ledger/ereignis.py`.
+
+- **Registrierungs-Deadline (strenger als „T−1"):** Beide Messfenster beginnen
+  am Börsenschluss des letzten Handelstags vor dem Ereignistag T. `created_utc`
+  muss deshalb nachweislich **vor dem Börsenschluss dieser Vortages-Session**
+  liegen — echte Schlusszeit laut XNYS-Kalender (`pandas-market-calendars`),
+  womit auch Early-Close-Tage (13:00 ET) korrekt behandelt sind. „Spätestens
+  T−1" ist damit stets miterfüllt. Eine verpasste Deadline führt dazu, dass der
+  Termin ausgelassen und im Lauf ausgewiesen wird — **kein Nachtragen**.
+- **Anker-Semantik (abweichend von `w1_up_v1`, ausdrücklich):**
+  `anchor_date`/`anchor_close` = letzter zum Registrierzeitpunkt im
+  Tiingo-Cache verfügbarer Handelstag — reine Dokumentation des Datenstands.
+  Das Messfenster ergibt sich **allein** aus `target_id` + Ereignistag;
+  `target_date` = Ereignistag T.
+- **Überlappungsregel (Entscheidung c):** Fällt ein FOMC-Statement-Tag mit
+  einem CPI-Release-Tag zusammen, wird für diesen Tag **keine**
+  Ereignis-Prognose registriert (aussetzen + ausweisen; konsistent mit der
+  eingefrorenen B3-Hypothese, die Überlappungstage ausschließt). Die
+  Wochenprognose `w1_up_v1` läuft unverändert weiter.
+- **Handelstag-Voraussetzung:** T muss laut XNYS-Kalender Handelstag sein,
+  sonst stoppen und Projektinhaber fragen. Wird ein bereits registrierter
+  Termin nachträglich verschoben (Fed/BLS), bleibt die Zeile stehen
+  (Append-only); die Auflösung stoppt dann mit Fehler — Entscheidung liegt
+  beim Projektinhaber, nichts wird still repariert.
+- **Auflösung:** sobald der Ereignistag im Tiingo-Cache vorliegt;
+  `realized_return` = Zielgröße des Ereignistags (auf 6 Stellen gerundet),
+  `outcome` = 1 genau dann, wenn > 0, `resolution_date` = T. Es gibt **keinen
+  Ausweichtag**: Fehlt T im Cache, obwohl spätere Tage vorliegen, oder fehlt
+  die Vortages-Session im Cache (Fensterbeginn), wird abgebrochen — stoppen
+  und Projektinhaber fragen. Preisquelle und Ausfallregel wie `w1_up_v1`
+  (nur Tiingo-Rohfelder, kein stiller Quellenwechsel).
+
+## Ziel `fomc_on_up_v1` — „Overnight in den FOMC-Tag hinein positiv" (Assets: SPY, QQQ · Horizont-Label `ev_on`)
+
+**In einem Satz:** Die Prognose ist die Wahrscheinlichkeit, dass der
+Overnight-Total-Return vom Schlusskurs des letzten Handelstags vor dem
+FOMC-Statement-Tag zur Eröffnung des Statement-Tags positiv ist.
+
+- **Ereignistag T:** FOMC-Statement-Tag laut Ereignistag-Konventionen (oben);
+  nur reguläre Sitzungen (`meeting_type = meeting` in
+  `data/processed/fomc_termine.csv`).
+- **Zielgröße — Overnight-Total-Return** (Tiingo-Rohfelder wie `w1_up_v1`,
+  Formel identisch zur eingefrorenen B3-Hypothese `rep_pre_fomc_drift` und zu
+  `src/mie/es/masszahlen.py`):
+
+  `Overnight-TR = (open_T + div_cash_T) · split_factor_T / close_(T−1) − 1`
+
+  mit T−1 = letzter Handelstag vor T.
+- **Binäres Ziel:** 1, wenn `Overnight-TR > 0`; sonst 0 (exakt 0 zählt als
+  „nicht gestiegen").
+- **Motivation:** direkter Forward-Test des in B3 bestätigten
+  Pre-FOMC-Drift-Befunds (docs/reports/b_es_rep_pre_fomc_drift.md) —
+  Entscheidung (a) des Projektinhabers vom 10.07.2026.
+
+## Ziel `cpi_d1_up_v1` — „CPI-Release-Tag endet positiv" (Assets: SPY, QQQ · Horizont-Label `ev_d1`)
+
+**In einem Satz:** Die Prognose ist die Wahrscheinlichkeit, dass der
+Tages-Total-Return des CPI-Release-Tags (Schluss Vortag → Schluss
+Release-Tag) positiv ist.
+
+- **Ereignistag T:** CPI-Release-Tag laut Ereignistag-Konventionen (oben;
+  Veröffentlichung 08:30 ET vor Börsenöffnung, der Tagesschluss enthält die
+  Reaktion); Terminliste `data/processed/cpi_termine.csv` inkl. der
+  Einzelfall-Korrektur 24.02.1998 (docs/reports/a3_quellen.md §2.6).
+- **Zielgröße — Tages-Total-Return** (Tagesformel von `w1_up_v1`):
+
+  `Tages-TR = (close_T + div_cash_T) · split_factor_T / close_(T−1) − 1`
+
+  mit T−1 = letzter Handelstag vor T.
+- **Binäres Ziel:** 1, wenn `Tages-TR > 0`; sonst 0.
+
+## Modell `klimatologie_ev_v0` (ereigniskonditionale Basisrate)
+
+*(Wie `klimatologie_v0`, aber bedingt auf Ereignistage: Als Prognose dient der
+Anteil der historischen Ereignistage desselben Typs, an denen die Zielgröße
+positiv war. Kein Modelltraining.)*
+
+- **Trainingsmenge je Ereignistyp und Asset** (Entscheidung d,
+  hypothesenkonsistent):
+  - FOMC (`fomc_on_up_v1`): reguläre Statement-Tage **ab 1999-05-01**
+    (Statement-Zeiten-Ära, wie `rep_pre_fomc_drift`).
+  - CPI (`cpi_d1_up_v1`): Release-Tage ab Beginn der Terminliste (Feb 1994);
+    für QQQ faktisch ab Reihenbeginn 1999-03-10.
+  - Jeweils **ohne** FOMC=CPI-Überlappungstage (Überlappungsregel oben);
+    Ereignistage ohne Kurszeile (vor Reihenbeginn) fallen heraus.
+- **Expandierendes Fenster:** alle zum Registrierzeitpunkt im Cache
+  verfügbaren Ereignistage. Daten ab 01.01.2025 sind als Live-Prognose-Input
+  ausdrücklich erlaubt (Lockbox-Regel, CLAUDE.md §3.6) — gesperrt ist
+  Exploration/Auswertung, nicht der Modellinput; ausgegeben wird nur die eine
+  Basisrate mit n und Zeitraum, keine weiteren Aufschlüsselungen.
+- **Dokumentiert je Prognose:** `train_n` (Anzahl verwendeter historischer
+  Ereignistage), `train_start`/`train_end` (erster/letzter verwendeter
+  Ereignistag), `data_version` (SHA-256 der Tiingo-Rohdatei), `code_commit`.
+
+## Modell `klimatologie_alltage_v0` (unkonditionale Referenz-Basisrate)
+
+*(Vergleichslatte laut Freigabeplan B4: dieselbe Zielgröße, aber Basisrate
+über ALLE Handelstage der Reihe statt nur über Ereignistage.)*
+
+- Anteil aller Handelstage der Reihe (ab Reihenbeginn, expandierend,
+  Live-Input wie oben), an denen die Zielgröße positiv war;
+  `train_start`/`train_end` = erster/letzter Tag der Messreihe.
+- Je Termin und Asset wird **zusätzlich** zur `klimatologie_ev_v0`-Prognose
+  eine Referenzzeile registriert (`forecast_id`-Suffix `_ref`, gleiche
+  `target_id`, gleiches Fenster). Der spätere paarweise
+  Brier-/Log-Loss-/Kalibrierungs-Vergleich „ereigniskonditional vs.
+  Klimatologie" ist damit forward registriert statt nachträglich
+  rekonstruiert.
+- **Ehrliche Einordnung:** Bei ≈ 20 Terminen/Jahr (8 FOMC + 12 CPI) werden
+  diese Metriken erst nach rund einem Jahr ansatzweise aussagekräftig; bis
+  dahin ist der Ereignis-Ledger reine Buchführung. Alle Wahrscheinlichkeiten
+  sind Modelloutputs (Klimatologie-Basisraten) — Szenario-Rechnungen, keine
+  Anlageempfehlung.
