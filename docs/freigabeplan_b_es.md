@@ -2,6 +2,10 @@
 
 **Status: Freigegeben am 09.07.2026 durch den Projektinhaber (B0–B3).**
 **B4 ist zurückgestellt — noch nicht entschieden, wird nicht begonnen.**
+**Nachtrag 10.07.2026: B4 vom Projektinhaber freigegeben** (nach Abschluss von
+B0–B3). Umsetzung im üblichen Zyklus: eigener B4-Paketplan → Bestätigung →
+Umsetzung (Verfassung §6); der übrige Plantext bleibt als Protokoll des
+Stands vom 09.07.2026 unverändert.
 Vorgelegt und angenommen am 09.07.2026; dieses Dokument hält den freigegebenen
 Umfang unverändert fest. Jede Abweichung davon: stoppen und fragen
 (CLAUDE.md §6, Verfassung §6).
