@@ -14,10 +14,10 @@ from mie.es import EsError
 from mie.es.b1_volatilitaet import (
     EXPERIMENT_ID,
     auswertung,
-    data_version_kurz,
     ergebnis_kurz,
     report_text,
 )
+from mie.es.runner import data_version_kurz
 
 
 def kursframe(start: str, perioden: int, seed: int = 1) -> pd.DataFrame:

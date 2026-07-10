@@ -23,10 +23,19 @@ import pandas as pd
 
 from mie import registry
 from mie.es import EsError
-from mie.es.ereignistage import CPI_CSV, FOMC_CSV, load_cpi_days, load_fomc_days
 from mie.es.masszahlen import abs_tages_tr, spanne
+from mie.es.runner import (
+    GRUPPEN_LABEL,
+    data_version_kurz,
+    lade_daten,
+    placebo_tabelle,
+    pp,
+    pruefe_registry,
+    termine_im_fenster,
+    vergleichstabelle,
+)
 from mie.es.statistik import im_fenster, ohne_lockbox, placebo_vergleich, vergleich
-from mie.sources import REPO_ROOT, raw_paths, read_meta, tiingo
+from mie.sources import REPO_ROOT
 
 EXPERIMENT_ID = "rep_ereignistag_volatilitaet"
 REPORT_REL = f"docs/reports/b_es_{EXPERIMENT_ID}.md"
@@ -40,7 +49,6 @@ REGISTRIERTES_FENSTER = ("1994-02-04", "2024-12-31")
 MASSE = {"abs_tr": ("|Tages-TR|", abs_tages_tr), "spanne": ("Spanne", spanne)}
 STATS = ["mittelwert", "median"]
 GRUPPEN = ["fomc", "cpi", "gepoolt"]
-GRUPPEN_LABEL = {"fomc": "FOMC", "cpi": "CPI", "gepoolt": "gepoolt"}
 
 N_BOOT = 10_000
 ALPHA = 0.05
@@ -48,10 +56,6 @@ ALPHA = 0.05
 # Statistik → Gruppe), Placebos fortlaufend ab SEED_BASIS + PLACEBO_SEED_OFFSET.
 SEED_BASIS = 20260709
 PLACEBO_SEED_OFFSET = 100
-
-
-def _termine_im_fenster(termine: pd.DatetimeIndex, start: str, ende: str) -> pd.DatetimeIndex:
-    return termine[(termine >= pd.Timestamp(start)) & (termine <= pd.Timestamp(ende))]
 
 
 def auswertung(
@@ -88,8 +92,8 @@ def auswertung(
             for mass, (_, fn) in MASSE.items()
         }
         handelstage = pd.DatetimeIndex(werte["abs_tr"]["date"])
-        fomc_w = _termine_im_fenster(fomc_idx, start, ende)
-        cpi_w = _termine_im_fenster(cpi_idx, start, ende)
+        fomc_w = termine_im_fenster(fomc_idx, start, ende)
+        cpi_w = termine_im_fenster(cpi_idx, start, ende)
         gepoolt_w = fomc_w.union(cpi_w)
         gruppen_termine = {
             "fomc": (fomc_w, cpi_w),
@@ -152,38 +156,6 @@ def auswertung(
 
 
 # --- Report ---------------------------------------------------------------------
-
-
-def _pp(x: float) -> str:
-    return f"{x * 100:+.3f}"
-
-
-def _tabelle(zeilen: list[dict]) -> list[str]:
-    kopf = [
-        "| Asset | Gruppe | n Ereignis | n Baseline | Ereignis | Baseline "
-        "| Δ (E−B) in pp | 95-%-KI in pp | KI > 0 |",
-        "|---|---|---|---|---|---|---|---|---|",
-    ]
-    return kopf + [
-        f"| {v['asset']} | {GRUPPEN_LABEL[v['gruppe']]} | {v['n_ereignis']} | {v['n_baseline']} "
-        f"| {v['ereignis_stat'] * 100:.3f} % | {v['baseline_stat'] * 100:.3f} % "
-        f"| {_pp(v['delta'])} | [{_pp(v['ki_low'])}; {_pp(v['ki_high'])}] "
-        f"| {'ja' if v['ki_low'] > 0 else 'nein'} |"
-        for v in zeilen
-    ]
-
-
-def _placebo_tabelle(zeilen: list[dict]) -> list[str]:
-    kopf = [
-        "| Asset | Gruppe | n Placebo | n Baseline | Δ (P−B) in pp | 95-%-KI in pp | 0 im KI |",
-        "|---|---|---|---|---|---|---|",
-    ]
-    return kopf + [
-        f"| {p['asset']} | {GRUPPEN_LABEL[p['gruppe']]} | {p['n_placebo']} | {p['n_baseline']} "
-        f"| {_pp(p['delta'])} | [{_pp(p['ki_low'])}; {_pp(p['ki_high'])}] "
-        f"| {'ja' if p['ki_low'] < 0 < p['ki_high'] else 'nein'} |"
-        for p in zeilen
-    ]
 
 
 def report_text(
@@ -267,21 +239,21 @@ def report_text(
         "",
         "## Primäres Ergebnis — Mittelwert |Tages-TR| (Ereignis − Baseline)",
         "",
-        *_tabelle(block("abs_tr", "mittelwert")),
+        *vergleichstabelle(block("abs_tr", "mittelwert")),
         "",
         "## Ergänzende Ergebnisse",
         "",
         "### Median |Tages-TR| (robust gegen Extremtage)",
         "",
-        *_tabelle(block("abs_tr", "median")),
+        *vergleichstabelle(block("abs_tr", "median")),
         "",
         "### Mittelwert Spanne",
         "",
-        *_tabelle(block("spanne", "mittelwert")),
+        *vergleichstabelle(block("spanne", "mittelwert")),
         "",
         "### Median Spanne",
         "",
-        *_tabelle(block("spanne", "median")),
+        *vergleichstabelle(block("spanne", "median")),
         "",
         "## R4-Placebo (jahresgeschichtet, Mittelwert |Tages-TR|)",
         "",
@@ -291,7 +263,7 @@ def report_text(
         "überdeckt die 0 — konstruktionsbedingt verfehlt ein 95-%-KI die 0 aber in ~5 % "
         "der Ziehungen.",
         "",
-        *_placebo_tabelle(placebos),
+        *placebo_tabelle(placebos),
         "",
         "## Zusammenfassung (automatisch aus den Zahlen)",
         "",
@@ -327,7 +299,7 @@ def report_text(
 def ergebnis_kurz(ergebnis: dict) -> str:
     """Ein-Satz-Ergebnis für registry/auswertungen.csv (ohne Komma/Quote, appendonly)."""
     teile = [
-        f"{v['asset']} {_pp(v['delta'])}pp KI[{_pp(v['ki_low'])};{_pp(v['ki_high'])}]"
+        f"{v['asset']} {pp(v['delta'])}pp KI[{pp(v['ki_low'])};{pp(v['ki_high'])}]"
         for v in ergebnis["vergleiche"]
         if v["primaer"] and v["gruppe"] == "gepoolt"
     ]
@@ -341,77 +313,12 @@ def ergebnis_kurz(ergebnis: dict) -> str:
     )
 
 
-def data_version_kurz(datenversion: list[dict]) -> str:
-    """Kurzform der Datenversion (volle SHA-256 stehen im Report)."""
-    return "+".join(f"{d['schluessel']}={d['sha256'][:12]}" for d in datenversion)
-
-
 # --- Laden der echten Daten (nur Cache, kein Netz) ---------------------------------
 
 
-def _pruefe_registry() -> dict:
-    """Vor jeder Rechnung: Registry konsistent, Hypothese eingefroren, Fenster passt."""
-    probleme = registry.check_registry()
-    if probleme:
-        raise EsError("Registry-Check fehlgeschlagen: " + " | ".join(probleme))
-    experimente = registry.load_experiments().set_index("experiment_id")
-    if EXPERIMENT_ID not in experimente.index:
-        raise EsError(f"{EXPERIMENT_ID}: nicht in registry/experimente.csv registriert")
-    zeile = experimente.loc[EXPERIMENT_ID].to_dict()
-    zeile["experiment_id"] = EXPERIMENT_ID
-    if (zeile["fenster_start"], zeile["fenster_ende"]) != REGISTRIERTES_FENSTER:
-        raise EsError(
-            f"registriertes Fenster {zeile['fenster_start']} – {zeile['fenster_ende']} "
-            f"weicht von {REGISTRIERTES_FENSTER} ab — stoppen und Projektinhaber fragen"
-        )
-    return zeile
-
-
-def _lade_daten() -> tuple[dict, pd.DatetimeIndex, pd.DatetimeIndex, list[dict]]:
-    kursframes: dict[str, pd.DataFrame] = {}
-    datenversion: list[dict] = []
-    for ticker in FENSTER:
-        raw_path, _ = raw_paths(tiingo.SOURCE, ticker, tiingo.EXT)
-        kursframes[ticker] = tiingo.parse_cached(raw_path)
-        meta = read_meta(tiingo.SOURCE, ticker, tiingo.EXT)
-        datenversion.append(
-            {
-                "schluessel": f"tiingo_{ticker.lower()}",
-                "label": f"Tiingo {ticker} (data/raw/tiingo/{ticker.lower()}_daily.json)",
-                "sha256": meta["sha256"],
-                "stand": meta["retrieved_utc"],
-                "n": int(meta["rows"]),
-                "einheit": "Zeilen",
-            }
-        )
-    fomc = load_fomc_days()
-    cpi = load_cpi_days()
-    datenversion.append(
-        {
-            "schluessel": "fomc",
-            "label": "FOMC-Termine (data/processed/fomc_termine.csv · nur meeting_type=meeting)",
-            "sha256": registry.file_sha256(FOMC_CSV),
-            "stand": "committet (A3)",
-            "n": int(len(fomc)),
-            "einheit": "reguläre Sitzungen",
-        }
-    )
-    datenversion.append(
-        {
-            "schluessel": "cpi",
-            "label": "CPI-Termine (data/processed/cpi_termine.csv · inkl. Korrektur 1998-02-24)",
-            "sha256": registry.file_sha256(CPI_CSV),
-            "stand": "committet (A3)",
-            "n": int(len(cpi)),
-            "einheit": "Release-Tage",
-        }
-    )
-    return kursframes, fomc, cpi, datenversion
-
-
 def _rechne(melde=None) -> tuple[dict, dict, list[dict]]:
-    experiment = _pruefe_registry()
-    kursframes, fomc, cpi, datenversion = _lade_daten()
+    experiment = pruefe_registry(EXPERIMENT_ID, REGISTRIERTES_FENSTER)
+    kursframes, fomc, cpi, datenversion = lade_daten(FENSTER)
     ergebnis = auswertung(kursframes, fomc, cpi, fenster=FENSTER, melde=melde)
     return experiment, ergebnis, datenversion
 
