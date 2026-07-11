@@ -76,7 +76,7 @@ Erwartete Ausgabe der Reihe nach (Werte variieren, Struktur nicht):
 **Schritt 2 — Gegenlesen** (Checkliste):
 
 - Wahrscheinlichkeiten sind weder 0 noch 1 und liegen nahe den Werten der
-  Vorwochen (Vergleich: letzte Zeilen in `ledger/forecasts.csv`);
+  Vorwochen (Vergleich: letzte Zeilen in `ledger/prognosen.csv`);
   `train_n` wächst gegenüber der Vorwoche um wenige Tage.
 - Ankertag SPY/QQQ = letzter Handelstag (bei Samstagslauf: Freitag);
   BTC-Anker = letzter abgeschlossener UTC-Tag (Abweichung normal).
@@ -92,7 +92,8 @@ Erwartete Ausgabe der Reihe nach (Werte variieren, Struktur nicht):
 
 Erwartet: ruff ohne Befund, alle Tests grün.
 
-**Schritt 4 — Committen und pushen (Backup):**
+**Schritt 4 — Committen und pushen (Backup)** — `YYYY-MM-DD` vor dem
+Ausführen durch das heutige Datum ersetzen (z. B. `2026-07-11`):
 
     git commit -am "ledger: Wochenlauf YYYY-MM-DD (SPY, QQQ, BTC)"
     git push
@@ -136,7 +137,8 @@ Uhrzeit), gibt es den schlanken Zwischenlauf:
 
        uv run python -m mie.a4_ledger events
 
-2. Ausgabe gegenlesen (wie Wochenlauf-Schritt 2, nur Ereigniszweig), dann:
+2. Ausgabe gegenlesen (wie Wochenlauf-Schritt 2, nur Ereigniszweig), dann
+   (`YYYY-MM-DD` durch das heutige Datum ersetzen):
 
        make check
        git commit -am "ledger: Ereignislauf YYYY-MM-DD (CPI/FOMC)"
@@ -161,7 +163,8 @@ zielen lassen — historisch selten, aber die Prüfung ist billig.
 
        git diff data/processed/fomc_termine.csv data/processed/cpi_termine.csv
 
-   - **Kein Diff:** fertig. Die aufgefrischten Reports mit committen:
+   - **Kein Diff:** fertig. Die aufgefrischten Reports mit committen
+     (`YYYY-MM-DD` durch das heutige Datum ersetzen):
 
          git commit -am "termine: Quartalsabgleich YYYY-MM-DD (keine Änderungen)"
 
