@@ -18,7 +18,6 @@ Schritt abarbeiten, bei Unklarheit nichts still entscheiden.
 1. Datei erzeugen:
 
        uv run python -m mie.kalender
-
    Kein Netzzugriff; liest die versionierten Terminlisten und schreibt
    `data/processed/mie_erinnerungen.ics` (lokales Artefakt, bewusst
    unversioniert — aus Code + Terminlisten jederzeit reproduzierbar).
